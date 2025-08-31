@@ -19,12 +19,22 @@ export default function TimelinePage() {
         return (
           <article key={p.id} className="rounded-2xl border p-4 space-y-3">
             <div className="text-xs opacity-60">{p.userName}</div>
+
+            {/* クエスト紐づけ表示 */}
+            {p.questTitle && (
+              <div className="text-xs inline-block rounded-full bg-gray-100 px-2 py-1">
+                🗺️ {p.questTitle}
+              </div>
+            )}
+
             <p className="whitespace-pre-wrap text-sm">{p.text}</p>
+
             {p.photoURL && (
               <div className="relative w-full h-80">
                 <Image src={p.photoURL} alt="" fill className="object-cover rounded-xl" />
               </div>
             )}
+
             <div className="flex items-center gap-3">
               <button
                 disabled={toggleLike.isPending}
@@ -38,11 +48,8 @@ export default function TimelinePage() {
           </article>
         );
       })}
-      {posts?.length === 0 && (
-        <p className="opacity-70">まだ投稿がありません。/app/post から最初の投稿をどうぞ！</p>
-      )}
+      {posts?.length === 0 && <p className="opacity-70">まだ投稿がありません。</p>}
     </div>
   );
 }
-
 

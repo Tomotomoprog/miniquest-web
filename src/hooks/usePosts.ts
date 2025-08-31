@@ -15,7 +15,8 @@ export type Post = {
   text: string;
   photoURL?: string;
   questId?: string | null;
-  createdAt: any; // Timestamp
+  questTitle?: string | null;   // ← これを型にも追加
+  createdAt: any;
   likeCount?: number;
 };
 
@@ -31,19 +32,18 @@ export function usePosts() {
   });
 }
 
-// 自分が「いいね」した投稿IDのセットを取得（collectionGroup を使用）
+// 自分が「いいね」した投稿IDのセット
 export function useMyLikedPostIds() {
   const uid = auth.currentUser?.uid;
   return useQuery<Set<string>>({
     queryKey: ["myLikes", uid],
     enabled: !!uid,
     queryFn: async () => {
-      // posts/{pid}/likes/{uid} ドキュメントを横断検索
       const q = query(collectionGroup(db, "likes"), where("uid", "==", uid));
       const snap = await getDocs(q);
       const set = new Set<string>();
       snap.forEach((docSnap) => {
-        const postRef = docSnap.ref.parent.parent; // likes の親 = posts/{pid}
+        const postRef = docSnap.ref.parent.parent;
         if (postRef) set.add(postRef.id);
       });
       return set;
@@ -52,7 +52,7 @@ export function useMyLikedPostIds() {
   });
 }
 
-// 投稿作成
+// 投稿作成（questTitle を同時保存）
 export function useCreatePost() {
   const qc = useQueryClient();
   return useMutation({
@@ -60,11 +60,21 @@ export function useCreatePost() {
       const user = auth.currentUser;
       if (!user) throw new Error("not authed");
 
-      let photoURL: string | undefined = undefined;
+      // 画像アップロード
+      let photoURL: string | undefined;
       if (payload.file) {
         const r = ref(storage, `posts/${user.uid}/${Date.now()}_${payload.file.name}`);
         await uploadBytes(r, payload.file);
         photoURL = await getDownloadURL(r);
+      }
+
+      // ← これが無いとエラーになります（必ず定義）
+      let questTitle: string | null = null;
+      if (payload.questId) {
+        const qDoc = await getDoc(doc(db, "quests", payload.questId));
+        if (qDoc.exists()) {
+          questTitle = (qDoc.data() as any).title ?? null;
+        }
       }
 
       await addDoc(collection(db, "posts"), {
@@ -73,6 +83,7 @@ export function useCreatePost() {
         text: payload.text,
         photoURL,
         questId: payload.questId ?? null,
+        questTitle,                 // ← ここは短縮プロパティでOK（上で定義済み）
         likeCount: 0,
         createdAt: serverTimestamp(),
       });
@@ -83,7 +94,7 @@ export function useCreatePost() {
   });
 }
 
-// いいねのトグル（付け外し）
+// いいねのトグル
 export function useToggleLike() {
   const qc = useQueryClient();
   return useMutation({
