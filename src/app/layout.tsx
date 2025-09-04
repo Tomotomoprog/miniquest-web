@@ -4,7 +4,7 @@ import QueryProvider from "@/components/providers/QueryProvider";
 
 export const metadata: Metadata = {
   title: "MiniQuest",
-  description: "日常を、冒険に。",
+  description: "日常を、冒険に。"
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

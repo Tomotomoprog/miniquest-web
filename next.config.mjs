@@ -3,9 +3,9 @@ const nextConfig = {
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**.googleusercontent.com" },
-      { protocol: "https", hostname: "**.appspot.com" },
-    ],
+      { protocol: "https", hostname: "**.appspot.com" }
+    ]
   },
-  eslint: { ignoreDuringBuilds: true }, // Vercel 本番でLintエラーで落とさない
+  eslint: { ignoreDuringBuilds: true }
 };
 export default nextConfig;
