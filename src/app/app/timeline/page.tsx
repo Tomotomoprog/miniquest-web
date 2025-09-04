@@ -1,55 +1,71 @@
 "use client";
-
 import { usePosts, useToggleLike, useMyLikedPostIds } from "@/hooks/usePosts";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 export default function TimelinePage() {
-  const { data: posts, isLoading, error } = usePosts();
+  const params = useSearchParams();
+  const questId = params.get("questId") ?? undefined;
+
+  const { data: posts, isLoading, error } = usePosts(questId);
   const { data: likedSet } = useMyLikedPostIds();
   const toggleLike = useToggleLike();
 
-  if (isLoading) return <p className="p-4">Loading timeline...</p>;
-  if (error) return <p className="p-4 text-red-600">Error loading posts</p>;
-
   return (
-    <div className="p-4 grid gap-3">
-      <h2 className="text-xl font-semibold">タイムライン</h2>
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-[18px] font-semibold">タイムライン</h2>
+        <div className="flex gap-2">
+          <Link href="/app/timeline" className={`btn ${questId ? "btn-ghost" : "btn-primary"}`}>All</Link>
+          {questId && <Link href="/app/timeline" className="btn-ghost">クリア</Link>}
+        </div>
+      </div>
+
+      {isLoading && <div className="card p-4">Loading...</div>}
+      {error && <div className="card p-4 text-red-600">Error loading posts</div>}
+
       {posts?.map((p) => {
         const liked = likedSet?.has(p.id);
         return (
-          <article key={p.id} className="rounded-2xl border p-4 space-y-3">
-            <div className="text-xs opacity-60">{p.userName}</div>
-
-            {/* クエスト紐づけ表示 */}
-            {p.questTitle && (
-              <div className="text-xs inline-block rounded-full bg-gray-100 px-2 py-1">
-                🗺️ {p.questTitle}
+          <article key={p.id} className="card p-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-full bg-gray-200" />
+              <div className="text-[14px]">
+                <div className="font-medium">{p.userName}</div>
+                {p.questTitle && <div className="text-[12px] text-dim">🗺️ {p.questTitle}</div>}
               </div>
-            )}
+            </div>
 
-            <p className="whitespace-pre-wrap text-sm">{p.text}</p>
+            {p.text && <p className="text-[15px] leading-relaxed">{p.text}</p>}
 
             {p.photoURL && (
-              <div className="relative w-full h-80">
-                <Image src={p.photoURL} alt="" fill className="object-cover rounded-xl" />
+              <div className="relative w-full h-[60vh] media">
+                <Image src={p.photoURL} alt="" fill className="object-cover" />
               </div>
             )}
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-8">
               <button
-                disabled={toggleLike.isPending}
+                className={`btn-icon ${liked ? "bg-black text-white" : ""}`}
                 onClick={() => toggleLike.mutate(p.id)}
-                className={`text-sm rounded-full px-3 py-1 border ${liked ? "bg-black text-white" : ""}`}
+                disabled={toggleLike.isPending}
                 aria-pressed={liked}
+                title="いいね"
               >
-                {liked ? "いいね中" : "いいね"} {p.likeCount ?? 0}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill={liked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.6">
+                  <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 22l7.8-8.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/>
+                </svg>
               </button>
+              <span className="text-[13px] text-dim -ml-6">{p.likeCount ?? 0}</span>
             </div>
           </article>
         );
       })}
-      {posts?.length === 0 && <p className="opacity-70">まだ投稿がありません。</p>}
+
+      {posts && posts.length === 0 && (
+        <div className="card p-6 text-center text-dim">まだ投稿がありません。</div>
+      )}
     </div>
   );
 }
-

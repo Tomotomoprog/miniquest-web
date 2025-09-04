@@ -1,32 +1,35 @@
-// src/app/auth/page.tsx
 "use client";
 
-import { auth, googleProvider } from "@/lib/firebase";
-import { signInWithPopup } from "firebase/auth";
+import { auth, provider } from "@/lib/firebase";
+import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 
 export default function AuthPage() {
   const router = useRouter();
-  const [err, setErr] = useState<string | null>(null);
 
-  const googleLogin = async () => {
-    try {
-      await signInWithPopup(auth, googleProvider);
-      router.push("/app");
-    } catch (e: any) {
-      setErr(e.message ?? "Login failed");
-    }
+  const login = async () => {
+    await signInWithPopup(auth, provider as GoogleAuthProvider);
+    router.replace("/app"); // ログイン後は自動遷移
   };
 
   return (
-    <main className="p-6 space-y-4">
-      <h1 className="text-2xl font-bold">Mini Quest にログイン</h1>
-      <button onClick={googleLogin} className="rounded-xl border p-3 hover:bg-gray-100">
-        Googleでログイン
-      </button>
-      {err && <p className="text-red-600 text-sm">{err}</p>}
-    </main>
+    <div
+      className="min-h-screen flex items-center justify-center text-center px-6"
+      style={{
+        background:
+          "linear-gradient(180deg, #e6f3ff 0%, #ffffff 40%, #cfe8ff 100%)",
+      }}
+    >
+      <div className="w-full max-w-sm">
+        <div className="mb-10">
+          <div className="text-2xl font-bold">MiniQuest</div>
+          <div className="text-dim mt-1">日常を、冒険に。</div>
+        </div>
+
+        <button onClick={login} className="btn btn-primary w-full">
+          Googleでログイン
+        </button>
+      </div>
+    </div>
   );
 }
-

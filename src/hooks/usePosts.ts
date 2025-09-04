@@ -1,5 +1,4 @@
 "use client";
-
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { db, storage, auth } from "@/lib/firebase";
 import {
@@ -13,26 +12,26 @@ export type Post = {
   uid: string;
   userName: string;
   text: string;
-  photoURL?: string;
+  photoURL?: string | null;
   questId?: string | null;
-  questTitle?: string | null;   // ← これを型にも追加
+  questTitle?: string | null;
   createdAt: any;
   likeCount?: number;
 };
 
-// タイムライン取得
-export function usePosts() {
+export function usePosts(questId?: string) {
   return useQuery<Post[]>({
-    queryKey: ["posts"],
+    queryKey: ["posts", questId ?? "all"],
     queryFn: async () => {
       const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
       const snap = await getDocs(q);
-      return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Post, "id">) }));
+      let list = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Post, "id">) }));
+      if (questId) list = list.filter((p) => p.questId === questId);
+      return list;
     },
   });
 }
 
-// 自分が「いいね」した投稿IDのセット
 export function useMyLikedPostIds() {
   const uid = auth.currentUser?.uid;
   return useQuery<Set<string>>({
@@ -52,7 +51,6 @@ export function useMyLikedPostIds() {
   });
 }
 
-// 投稿作成（questTitle を同時保存）
 export function useCreatePost() {
   const qc = useQueryClient();
   return useMutation({
@@ -60,7 +58,6 @@ export function useCreatePost() {
       const user = auth.currentUser;
       if (!user) throw new Error("not authed");
 
-      // 画像アップロード
       let photoURL: string | undefined;
       if (payload.file) {
         const r = ref(storage, `posts/${user.uid}/${Date.now()}_${payload.file.name}`);
@@ -68,43 +65,51 @@ export function useCreatePost() {
         photoURL = await getDownloadURL(r);
       }
 
-      // ← これが無いとエラーになります（必ず定義）
       let questTitle: string | null = null;
+      let questCategory: string | null = null;
       if (payload.questId) {
         const qDoc = await getDoc(doc(db, "quests", payload.questId));
         if (qDoc.exists()) {
-          questTitle = (qDoc.data() as any).title ?? null;
+          const data = qDoc.data() as { title?: string; category?: string } | undefined;
+          questTitle = data?.title ?? null;
+          questCategory = data?.category ?? null;
         }
       }
 
-      await addDoc(collection(db, "posts"), {
+      const data: Record<string, unknown> = {
         uid: user.uid,
         userName: user.displayName ?? "匿名",
         text: payload.text,
-        photoURL,
         questId: payload.questId ?? null,
-        questTitle,                 // ← ここは短縮プロパティでOK（上で定義済み）
+        questTitle,
         likeCount: 0,
         createdAt: serverTimestamp(),
-      });
+      };
+      if (photoURL) data.photoURL = photoURL;
+
+      await addDoc(collection(db, "posts"), data);
+
+      // 🎯 クライアント側で簡易XP付与（10XP）
+      const userRef = doc(db, "users", user.uid);
+      const inc: Record<string, unknown> = { xp: increment(10) };
+      if (questCategory) inc[`stats.${questCategory}`] = increment(1);
+      await setDoc(userRef, inc, { merge: true });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["posts"] });
+      qc.invalidateQueries({ queryKey: ["profile-me"] });
     },
   });
 }
 
-// いいねのトグル
 export function useToggleLike() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (pid: string) => {
       const uid = auth.currentUser?.uid;
       if (!uid) throw new Error("not authed");
-
       const likeRef = doc(db, "posts", pid, "likes", uid);
       const liked = (await getDoc(likeRef)).exists();
-
       if (liked) {
         await deleteDoc(likeRef);
         await updateDoc(doc(db, "posts", pid), { likeCount: increment(-1) });

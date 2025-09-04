@@ -1,17 +1,18 @@
-// src/app/layout.tsx
+import "./globals.css";
 import type { Metadata } from "next";
-import "@/app/globals.css";
+import QueryProvider from "@/components/providers/QueryProvider";
 
 export const metadata: Metadata = {
-  title: "Mini Quest Web",
-  description: "日常を冒険に",
+  title: "MiniQuest",
+  description: "日常を、冒険に。",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja">
-      <body className="min-h-dvh bg-gray-50 text-gray-900">{children}</body>
+      <body>
+        <QueryProvider>{children}</QueryProvider>
+      </body>
     </html>
   );
 }
-

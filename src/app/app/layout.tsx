@@ -1,39 +1,21 @@
-"use client";
-
-import { ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
-import { onAuthStateChanged, signOut, User } from "firebase/auth";
-import { auth } from "@/lib/firebase";
-import { useRouter } from "next/navigation";
-import QueryProvider from "@/components/QueryProvider";  // ← 追加
 
-export default function AppLayout({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null | undefined>(undefined);
-  const router = useRouter();
-
-  useEffect(() => onAuthStateChanged(auth, (u) => setUser(u ?? null)), []);
-  if (user === undefined) return <div className="p-4">Loading...</div>;
-  if (!user) { router.replace("/auth"); return null; }
-
+export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <QueryProvider>   {/* ← ここで包む */}
-      <div className="max-w-3xl mx-auto p-4">
-        <header className="flex items-center justify-between py-3">
-          <nav className="flex gap-3 text-sm">
-            <Link href="/app">Home</Link>
-            <Link href="/app/quests">Quests</Link>
-            <Link href="/app/post">Post</Link>
-            <Link href="/app/timeline">Timeline</Link>
+    <div className="min-h-screen flex flex-col bg-white">
+      {/* 上部ナビ（HOME / TIMELINE / PROFILE） */}
+      <header className="topbar">
+        <div className="container h-12 flex items-center justify-between">
+          <div className="text-[16px] font-semibold">MiniQuest</div>
+          <nav className="flex items-center gap-2">
+            <Link href="/app" className="btn-ghost">HOME</Link>
+            <Link href="/app/timeline" className="btn-ghost">TIMELINE</Link>
+            <Link href="/app/profile" className="btn-primary">PROFILE</Link>
           </nav>
-          <button
-            className="text-sm underline"
-            onClick={() => signOut(auth).then(() => router.replace("/auth"))}
-          >
-            ログアウト
-          </button>
-        </header>
-        <main>{children}</main>
-      </div>
-    </QueryProvider>
+        </div>
+      </header>
+
+      <main className="container flex-1 py-4">{children}</main>
+    </div>
   );
 }
