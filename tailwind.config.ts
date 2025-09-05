@@ -9,20 +9,27 @@ const config: Config = {
         dim: "#64748b",
         line: "#e5e7eb",
         brand: {
-          50:  "#f5fbff",
-          100: "#e6f3ff",
-          200: "#cfe8ff",
-          400: "#7aa8ff",
-          500: "#3b82f6",
-          600: "#2563eb",
+          50:  "#f0f9ff", // Lighter blue
+          100: "#e0f2fe",
+          200: "#bae6fd",
+          300: "#7dd3fc",
+          400: "#38bdf8",
+          500: "#0ea5e9", // Main brand color
+          600: "#0284c7",
+          700: "#0369a1",
         },
       },
       boxShadow: {
-        card: "0 1px 1px rgba(2,6,23,0.04), 0 8px 24px rgba(2,6,23,0.06)",
+        card: "0 1px 2px 0 rgb(0 0 0 / 0.05), 0 1px 3px 0 rgb(0 0 0 / 0.1)",
       },
       borderRadius: {
-        xl2: "1rem",
+        xl: "0.75rem", // A bit smaller for a cleaner look
+        "2xl": "1rem",
       },
+      fontFamily: {
+        sans: ["var(--font-geist-sans)"],
+        mono: ["var(--font-geist-mono)"],
+      }
     },
   },
   plugins: [],

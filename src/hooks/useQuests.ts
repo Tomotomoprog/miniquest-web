@@ -7,12 +7,13 @@ export type Quest = {
   id: string;
   title: string;
   description: string;
-  hashtag: string;  // 例: #morning, #study など
-  category?: "Life"|"Study"|"Physical"|"Social"|"Creative"|"Mental"; // 任意
+  tag: string;  // 変更: hashtag -> tag
+  category?: "Life"|"Study"|"Physical"|"Social"|"Creative"|"Mental";
   createdAt?: any;
 };
 
-export function useDailyQuestsCommon(count = 3) {
+// 変更: useDailyQuestsCommon -> useDailyQuests
+export function useDailyQuests(count = 3) {
   return useQuery<Quest[]>({
     queryKey: ["daily-quests-common", count, new Date().toDateString()],
     queryFn: async () => {

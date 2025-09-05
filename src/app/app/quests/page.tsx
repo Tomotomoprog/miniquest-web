@@ -1,17 +1,16 @@
 "use client";
 
-import { useDailyQuestsCommon } from "@/hooks/useQuests";
+import { useDailyQuests } from "@/hooks/useQuests"; // 変更: useDailyQuestsCommon -> useDailyQuests
 import Link from "next/link";
 
 export default function QuestsPage() {
-  const { data: quests, isLoading, error } = useDailyQuestsCommon(3);
+  const { data: quests, isLoading, error } = useDailyQuests(3); // 変更
 
   if (isLoading) return <p>Loading quests...</p>;
   if (error) return <p className="text-red-600">Error loading quests</p>;
 
   return (
     <div className="space-y-4">
-      {/* ストーリーズ風のヘッダ（BeReal/IGの軽い帯） */}
       <div className="card p-4 flex items-center justify-between">
         <div>
           <h2 className="text-[18px] font-semibold">今日のクエスト</h2>
@@ -41,4 +40,3 @@ export default function QuestsPage() {
     </div>
   );
 }
-

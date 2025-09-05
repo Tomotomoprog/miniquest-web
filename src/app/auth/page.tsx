@@ -8,8 +8,13 @@ export default function AuthPage() {
   const router = useRouter();
 
   const login = async () => {
-    await signInWithPopup(auth, provider as GoogleAuthProvider);
-    router.replace("/app"); // ログイン後は自動遷移
+    try {
+      await signInWithPopup(auth, provider as GoogleAuthProvider);
+      router.replace("/app"); // ログイン後は自動遷移
+    } catch (error) {
+      console.error("Login failed:", error);
+      // You can add user-facing error handling here
+    }
   };
 
   return (
@@ -17,16 +22,16 @@ export default function AuthPage() {
       className="min-h-screen flex items-center justify-center text-center px-6"
       style={{
         background:
-          "linear-gradient(180deg, #e6f3ff 0%, #ffffff 40%, #cfe8ff 100%)",
+          "linear-gradient(180deg, #e0f2fe 0%, #ffffff 100%)", // Updated gradient
       }}
     >
       <div className="w-full max-w-sm">
-        <div className="mb-10">
-          <div className="text-2xl font-bold">MiniQuest</div>
-          <div className="text-dim mt-1">日常を、冒険に。</div>
+        <div className="mb-12">
+          <h1 className="text-4xl font-bold text-brand-600">MiniQuest</h1>
+          <p className="text-slate-600 mt-2">日常を、冒険に。</p>
         </div>
 
-        <button onClick={login} className="btn btn-primary w-full">
+        <button onClick={login} className="btn btn-primary w-full shadow-lg">
           Googleでログイン
         </button>
       </div>
