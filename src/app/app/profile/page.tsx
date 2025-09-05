@@ -1,15 +1,17 @@
 "use client";
-import { useMyProfile, useUpdateProfile } from "@/hooks/useProfile";
+import { useMyProfile, useUpdateProfile, useUpdateAvatar } from "@/hooks/useProfile";
 import Link from "next/link";
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 export default function ProfilePage() {
-  const { data } = useMyProfile();
+  const { data, isLoading } = useMyProfile();
   const updateProfile = useUpdateProfile();
+  const updateAvatar = useUpdateAvatar();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isEditing, setIsEditing] = useState(false);
-  const [displayName, setDisplayName] = useState(data?.profile.displayName ?? "");
+  const [displayName, setDisplayName] = useState("");
 
   useEffect(() => {
     if (data?.profile.displayName) {
@@ -17,7 +19,7 @@ export default function ProfilePage() {
     }
   }, [data?.profile.displayName]);
 
-  const handleSave = async () => {
+  const handleSaveName = async () => {
     if (displayName.trim() === data?.profile.displayName) {
       setIsEditing(false);
       return;
@@ -26,12 +28,43 @@ export default function ProfilePage() {
     setIsEditing(false);
   };
 
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      updateAvatar.mutate(file);
+    }
+  };
+
+  const onAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  if (isLoading) {
+    return <div className="card p-5 text-center">Loading Profile...</div>;
+  }
+
   return (
     <div className="space-y-6">
       <section className="card p-6 flex flex-col items-center text-center">
-        <div className="h-24 w-24 rounded-full bg-gray-200 relative overflow-hidden ring-4 ring-white shadow-md">
-           {data?.profile.photoURL && <Image src={data.profile.photoURL} alt="profile" fill className="object-cover" />}
-        </div>
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleAvatarChange}
+          className="hidden"
+          accept="image/*"
+        />
+        <button
+          onClick={onAvatarClick}
+          className="h-24 w-24 rounded-full bg-gray-200 relative overflow-hidden ring-4 ring-white shadow-md group"
+          disabled={updateAvatar.isPending}
+        >
+          {data?.profile.photoURL && <Image src={data.profile.photoURL} alt="profile" fill className="object-cover" />}
+          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 flex items-center justify-center transition-opacity">
+            <span className="text-white text-xs opacity-0 group-hover:opacity-100">
+              {updateAvatar.isPending ? 'Uploading...' : '変更'}
+            </span>
+          </div>
+        </button>
         
         <div className="mt-4 w-full max-w-xs">
           {isEditing ? (
@@ -45,7 +78,7 @@ export default function ProfilePage() {
               />
               <div className="flex gap-2">
                 <button onClick={() => setIsEditing(false)} className="btn-ghost btn flex-1">キャンセル</button>
-                <button onClick={handleSave} disabled={updateProfile.isPending} className="btn-primary btn flex-1">
+                <button onClick={handleSaveName} disabled={updateProfile.isPending} className="btn-primary btn flex-1">
                   {updateProfile.isPending ? '保存中...' : '保存'}
                 </button>
               </div>

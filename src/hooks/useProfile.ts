@@ -1,10 +1,10 @@
 "use client";
-import { useQuery } from "@tanstack/react-query";
-import { auth, db } from "@/lib/firebase";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { auth, db, storage } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { computeLevel, computeClass, UserStats, ClassResult } from "@/utils/progression";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { updateProfile } from "firebase/auth";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 export type UserProfile = {
   uid: string;
@@ -39,7 +39,6 @@ export function useMyProfile() {
       const classInfo = computeClass(merged.stats, level);
       return { profile: merged, level, classInfo };
     },
-    initialData: undefined,
   });
 }
 
@@ -52,12 +51,10 @@ export function useUpdateProfile() {
       if (!user) throw new Error("Not authenticated");
       if (!payload.displayName.trim()) throw new Error("Display name cannot be empty");
 
-      // Firebase Authenticationのプロフィールを更新
       await updateProfile(user, {
         displayName: payload.displayName,
       });
 
-      // Firestoreのユーザー情報を更新
       const userDocRef = doc(db, "users", user.uid);
       await setDoc(userDocRef, { 
         displayName: payload.displayName 
@@ -66,8 +63,35 @@ export function useUpdateProfile() {
       return payload.displayName;
     },
     onSuccess: () => {
-      // プロフィール情報を再取得して画面を更新
       return queryClient.invalidateQueries({ queryKey: ["profile-me"] });
+    },
+  });
+}
+
+export function useUpdateAvatar() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const user = auth.currentUser;
+      if (!user) throw new Error("Not authenticated");
+      if (!file) throw new Error("No file selected");
+
+      const filePath = `avatars/${user.uid}/${Date.now()}_${file.name}`;
+      const fileRef = ref(storage, filePath);
+      await uploadBytes(fileRef, file);
+
+      const photoURL = await getDownloadURL(fileRef);
+
+      await updateProfile(user, { photoURL });
+
+      const userDocRef = doc(db, "users", user.uid);
+      await setDoc(userDocRef, { photoURL }, { merge: true });
+
+      return photoURL;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile-me"] });
     },
   });
 }
