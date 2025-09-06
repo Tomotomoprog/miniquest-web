@@ -7,10 +7,43 @@ export type UserStats = {
   Mental: number;
 };
 
+/**
+ * 現在のXPからレベルを計算します。
+ * @param xp 現在のXP
+ * @returns レベル
+ */
 export function computeLevel(xp: number): number {
   // 100XPで1レベル上がる
   return Math.max(1, Math.floor(xp / 100) + 1);
 }
+
+/**
+ * レベルアップに必要なXPの情報を計算します。
+ * @param xp 現在のXP
+ */
+export function computeXpProgress(xp: number) {
+  const level = computeLevel(xp);
+  // 現レベルになるために必要なXP (Lv1は0, Lv2は100)
+  const baseXpForCurrentLevel = (level - 1) * 100;
+  // 次のレベルになるために必要なXP
+  const xpForNextLevel = level * 100;
+
+  // 現レベルで溜めたXP
+  const xpInCurrentLevel = xp - baseXpForCurrentLevel;
+  // 次のレベルまでに必要なXP量
+  const xpNeededForNextLevel = 100;
+
+  // 進捗率 (0〜100)
+  const progressPercentage = Math.floor((xpInCurrentLevel / xpNeededForNextLevel) * 100);
+
+  return {
+    level,
+    xpInCurrentLevel, // 現在のレベルで獲得したXP
+    xpNeededForNextLevel, // 次のレベルアップまでに必要なXP (常に100)
+    progressPercentage, // 次のレベルまでの進捗率 (%)
+  };
+}
+
 
 export type ClassResult = { title: string; tier: "初級"|"中級"|"上級"; pair: [string, string] };
 

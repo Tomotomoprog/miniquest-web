@@ -9,7 +9,6 @@ import { getDownloadURL, ref, uploadBytes, deleteObject } from "firebase/storage
 import { QuestCategory } from "./useQuests";
 import { computeClass, computeLevel } from "@/utils/progression";
 
-// Post型にpostDateを追加
 export type Post = {
   id: string;
   uid: string;
@@ -19,11 +18,12 @@ export type Post = {
   userClass: string;
   text: string;
   photoURL?: string | null;
-  storagePath?: string | null; // Storageのパスを追加
+  storagePath?: string | null;
   questId?: string | null;
   questTitle?: string | null;
-  questCategory?: QuestCategory | null; // XP減算用にカテゴリを追加
-  postDate: string; // YYYY-MM-DD形式の日付
+  questCategory?: QuestCategory | null;
+  myQuestId?: string | null;
+  postDate: string;
   createdAt: any;
   likeCount?: number;
   commentCount?: number;
@@ -38,10 +38,9 @@ export type Comment = {
   createdAt: any;
 };
 
-// JST（日本標準時）のYYYY-MM-DD形式の日付を取得するヘルパー関数
 const getJSTDateString = () => {
   const now = new Date();
-  const jstOffset = 9 * 60; // JSTはUTC+9
+  const jstOffset = 9 * 60;
   const jstNow = new Date(now.getTime() + (jstOffset + now.getTimezoneOffset()) * 60000);
   return jstNow.toISOString().split('T')[0];
 };
@@ -82,13 +81,12 @@ export function useMyLikedPostIds() {
 export function useCreatePost() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: { text: string; file?: File | null; questId?: string }) => {
+    mutationFn: async (payload: { text: string; file?: File | null; questId?: string; myQuestId?: string }) => {
       const user = auth.currentUser;
       if (!user) throw new Error("not authed");
 
       const todayStr = getJSTDateString();
 
-      // 同日・同クエストの投稿がないかチェック
       if (payload.questId) {
         const q = query(
           collection(db, "posts"),
@@ -101,7 +99,7 @@ export function useCreatePost() {
           throw new Error("このクエストは今日すでに達成済みです。");
         }
       }
-      
+
       const userDoc = await getDoc(doc(db, "users", user.uid));
       const userData = userDoc.data() || { xp: 0, stats: {} };
       const level = computeLevel(userData.xp || 0);
@@ -139,7 +137,8 @@ export function useCreatePost() {
         questId: payload.questId ?? null,
         questTitle,
         questCategory,
-        postDate: todayStr, // 投稿日を記録
+        myQuestId: payload.myQuestId ?? null,
+        postDate: todayStr,
         likeCount: 0,
         commentCount: 0,
         createdAt: serverTimestamp(),
@@ -148,17 +147,29 @@ export function useCreatePost() {
       await addDoc(collection(db, "posts"), postData as any);
 
       const userRef = doc(db, "users", user.uid);
-      const inc: Record<string, unknown> = { xp: increment(10) };
-      if (questCategory) inc[`stats.${questCategory}`] = increment(1);
-      await setDoc(userRef, inc, { merge: true });
+
+      const updates: Record<string, unknown> = { xp: increment(10) };
+      if (questCategory) {
+        updates[`stats.${questCategory}`] = increment(1);
+      }
+      await updateDoc(userRef, updates).catch(async (error) => {
+        if (error.code === 'not-found') {
+          await setDoc(userRef, updates, { merge: true });
+        } else {
+          throw error;
+        }
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["posts"] });
       qc.invalidateQueries({ queryKey: ["profile-me"] });
+      // 👇 この行を追加しました
+      qc.invalidateQueries({ queryKey: ["posts", "for-my-quest"] });
     },
   });
 }
 
+// ...以降のコードは変更なし...
 export function useToggleLike() {
   const qc = useQueryClient();
   return useMutation({
@@ -210,10 +221,10 @@ export function useAddComment() {
         text: text,
         createdAt: serverTimestamp(),
       };
-      
+
       const commentsRef = collection(db, "posts", postId, "comments");
       await addDoc(commentsRef, commentData);
-      
+
       const postRef = doc(db, "posts", postId);
       await updateDoc(postRef, { commentCount: increment(1) });
     },
@@ -224,7 +235,6 @@ export function useAddComment() {
   });
 }
 
-// ======== 投稿削除フック（新規追加） ========
 export function useDeletePost() {
   const qc = useQueryClient();
   return useMutation({
@@ -232,16 +242,13 @@ export function useDeletePost() {
       const user = auth.currentUser;
       if (!user || user.uid !== post.uid) throw new Error("Not authorized");
 
-      // 1. Storageから画像を削除 (あれば)
       if (post.storagePath) {
         const imageRef = ref(storage, post.storagePath);
         await deleteObject(imageRef).catch(err => console.error("Image deletion failed:", err));
       }
 
-      // 2. Firestoreから投稿ドキュメントを削除
       await deleteDoc(doc(db, "posts", post.id));
 
-      // 3. ユーザーのXPとステータスを減算 (クエスト投稿の場合のみ)
       if (post.questId) {
         const userRef = doc(db, "users", user.uid);
         const dec: Record<string, unknown> = { xp: increment(-10) };

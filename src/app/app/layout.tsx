@@ -1,12 +1,13 @@
-"use client"; // Add this line
+"use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation"; // Import usePathname
+import { usePathname } from "next/navigation";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname(); // Get current path
+  const pathname = usePathname();
 
   const navLinks = [
     { href: "/app", label: "HOME" },
+    { href: "/app/my-quest", label: "MY QUEST" }, // 👈 この行を追加
     { href: "/app/timeline", label: "TIMELINE" },
     { href: "/app/profile", label: "PROFILE" },
   ];

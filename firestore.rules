@@ -1,0 +1,50 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 【Quests】ログインしているユーザーは、全員がクエストを読み取れる
+    match /quests/{questId} {
+      allow read: if request.auth != null;
+      // クエストの作成や編集は、アプリからは許可しない（管理画面などから行う想定）
+      allow write: if false;
+    }
+
+    // 【Users】ユーザーは自分の情報のみ読み書きできる
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // 【MyQuests】ユーザーは自分のマイクエストのみ読み書きできる
+    match /my_quests/{myQuestId} {
+      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.uid;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.uid;
+    }
+
+    // 【Posts】投稿に関するルール
+    match /posts/{postId} {
+      // ログインユーザーは全ての投稿を読める
+      allow read: if request.auth != null;
+      // 自分の投稿を作成できる
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.uid;
+      // 自分の投稿だけを更新・削除できる
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.uid;
+
+      // 【Likes】投稿への「いいね」に関するサブルール
+      match /likes/{userId} {
+        allow read: if request.auth != null;
+        // 自分自身のIDでのみ「いいね」の作成・削除ができる
+        allow create, delete: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // 【Comments】投稿へのコメントに関するサブルール
+      match /comments/{commentId} {
+        allow read: if request.auth != null;
+        // 自分のコメントを作成できる
+        allow create: if request.auth != null && request.auth.uid == request.resource.data.uid;
+         // 自分のコメントだけを更新・削除できる
+        allow update, delete: if request.auth != null && request.auth.uid == resource.data.uid;
+      }
+    }
+  }
+}

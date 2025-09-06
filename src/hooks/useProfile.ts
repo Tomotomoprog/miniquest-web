@@ -2,7 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { auth, db, storage } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { computeLevel, computeClass, UserStats, ClassResult } from "@/utils/progression";
+import { computeClass, UserStats, ClassResult, computeXpProgress } from "@/utils/progression"; // 👈 computeXpProgress をインポート
 import { updateProfile } from "firebase/auth";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
@@ -14,9 +14,17 @@ export type UserProfile = {
   stats: UserStats;
 };
 
+// useMyProfileが返すデータの型を拡張
+type ProfileData = {
+  profile: UserProfile;
+  level: number;
+  classInfo: ClassResult;
+  xpProgress: ReturnType<typeof computeXpProgress>; // 👈 XP進捗の型を追加
+};
+
 export function useMyProfile() {
   const uid = auth.currentUser?.uid;
-  return useQuery<{ profile: UserProfile; level: number; classInfo: ClassResult }>({
+  return useQuery<ProfileData>({ // 👈 拡張した型を使用
     queryKey: ["profile-me", uid],
     enabled: !!uid,
     queryFn: async () => {
@@ -35,9 +43,12 @@ export function useMyProfile() {
         xp: typeof data.xp === "number" ? data.xp : 0,
         stats: { ...base.stats, ...(data.stats ?? {}) },
       };
-      const level = computeLevel(merged.xp);
-      const classInfo = computeClass(merged.stats, level);
-      return { profile: merged, level, classInfo };
+
+      // XP進捗を計算して返すデータに追加
+      const xpProgress = computeXpProgress(merged.xp);
+      const classInfo = computeClass(merged.stats, xpProgress.level);
+
+      return { profile: merged, level: xpProgress.level, classInfo, xpProgress };
     },
   });
 }
