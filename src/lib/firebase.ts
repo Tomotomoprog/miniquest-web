@@ -1,8 +1,8 @@
-// src/lib/firebase.ts
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { getFunctions } from "firebase/functions"; // 👈 これを追加
 
 const cfg = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? "",
@@ -15,4 +15,5 @@ const app = getApps().length ? getApp() : initializeApp(cfg);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+export const functions = getFunctions(app); // 👈 これを追加
 export const provider = new GoogleAuthProvider();

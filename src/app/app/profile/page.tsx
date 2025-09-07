@@ -89,7 +89,7 @@ export default function ProfilePage() {
         <div className="mt-4 w-full max-w-xs">
           {isEditing ? (
             <div className="flex flex-col gap-3">
-              <input 
+              <input
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
@@ -105,7 +105,7 @@ export default function ProfilePage() {
             </div>
           ) : (
             <>
-              <div className="text-2xl font-bold">{data?.profile.displayName ?? "ユーザー"}</div>
+              <div className="text-2xl font-bold">{data?.profile.username ?? data?.profile.displayName ?? "ユーザー"}</div>
               <button onClick={() => setIsEditing(true)} className="text-sm text-brand-600 hover:underline mt-1">
                 名前を編集
               </button>
@@ -122,7 +122,7 @@ export default function ProfilePage() {
 
         <div className="w-full max-w-xs mt-4">
           {data?.xpProgress && (
-            <ProgressBar 
+            <ProgressBar
               label="次のレベルまで"
               value={data.xpProgress.xpInCurrentLevel}
               max={data.xpProgress.xpNeededForNextLevel}
@@ -139,10 +139,8 @@ export default function ProfilePage() {
       <section className="card p-6">
         <h3 className="text-xl font-bold mb-4">ジャンル達成度</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6">
-          {/* 👇 ここを修正しました */}
           {categories.map((k) => {
             const value = data?.profile.stats?.[k] ?? 0;
-            // 次の10の倍数を目標値(max)に設定
             const nextMilestone = value === 0 ? 10 : Math.ceil(value / 10) * 10;
             return (
               <ProgressBar
