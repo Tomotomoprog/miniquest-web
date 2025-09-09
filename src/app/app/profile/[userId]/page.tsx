@@ -6,7 +6,8 @@ import { UserStats } from "@/utils/progression";
 import { useFetchMyQuests, MyQuest } from "@/hooks/useMyQuests";
 import { usePosts } from "@/hooks/usePosts";
 import Link from "next/link";
-import PostCard from "@/components/PostCard"; // 👈 PostCardをインポート
+import PostCard from "@/components/PostCard";
+import { useParams } from "next/navigation"; // 👈 useParamsをインポート
 
 // プログレスバーのコンポーネント
 const ProgressBar = ({ value, max, label, colorClass }: { value: number, max: number, label: string, colorClass: string }) => {
@@ -37,8 +38,10 @@ const QuestListItem = ({ quest }: { quest: MyQuest }) => {
     )
   };
 
-export default function UserProfilePage({ params }: { params: { userId: string } }) {
-  const { userId } = params;
+export default function UserProfilePage() { // 👈 引数から params を削除
+  const params = useParams(); // 👈 useParamsフックを使ってパラメータを取得
+  const userId = params.userId as string; // 👈 取得したパラメータからIDを取り出す
+
   const { data, isLoading, error } = useUserProfile(userId);
   const { data: quests, isLoading: isLoadingQuests } = useFetchMyQuests(userId);
   const { data: posts, isLoading: isLoadingPosts } = usePosts({ userId });
@@ -47,11 +50,9 @@ export default function UserProfilePage({ params }: { params: { userId: string }
     return quests?.filter(q => q.status === 'active') ?? [];
   }, [quests]);
 
-  // ▼▼▼▼▼ 共通クエストの投稿のみをフィルタリングするロジックを追加 ▼▼▼▼▼
   const commonPosts = useMemo(() => {
     return posts?.filter(p => !p.myQuestId) ?? [];
   }, [posts]);
-  // ▲▲▲▲▲ 追加ここまで ▲▲▲▲▲
 
   if (isLoading) {
     return <div className="card p-5 text-center">Loading Profile...</div>;
@@ -129,7 +130,6 @@ export default function UserProfilePage({ params }: { params: { userId: string }
         </div>
       </section>
       
-      {/* ▼▼▼▼▼ 共通クエストの投稿履歴セクションを追加 ▼▼▼▼▼ */}
       <section className="card p-6">
         <h3 className="text-xl font-bold">{data?.profile.displayName}の投稿履歴</h3>
         <div className="mt-4">
@@ -146,7 +146,6 @@ export default function UserProfilePage({ params }: { params: { userId: string }
           )}
         </div>
       </section>
-      {/* ▲▲▲▲▲ 追加ここまで ▲▲▲▲▲ */}
     </div>
   );
 }

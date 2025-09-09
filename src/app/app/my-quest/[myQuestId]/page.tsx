@@ -1,10 +1,12 @@
 "use client";
 import { useFetchMyQuestById } from "@/hooks/useMyQuests";
 import MyQuestDetailView from "../MyQuestDetailView";
+import { useParams } from "next/navigation"; // 👈 useParamsをインポート
 
-export default function MyQuestDetailPage({ params }: { params: { myQuestId: string } }) {
-  // paramsから直接myQuestIdを取得します
-  const { myQuestId } = params;
+export default function MyQuestDetailPage() { // 👈 引数から params を削除
+  const params = useParams(); // 👈 useParamsフックを使ってパラメータを取得
+  const myQuestId = params.myQuestId as string; // 👈 取得したパラメータからIDを取り出す
+
   const { data: quest, isLoading } = useFetchMyQuestById(myQuestId);
 
   if (isLoading) {
