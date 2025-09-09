@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link"; // 👈 Linkをインポート
 import { useAcceptFriendRequest, useDeclineFriendRequest, useFriendRequests, useFriends, useRemoveFriend, useSendFriendRequest, useUsers, UserWithFriendshipStatus } from "@/hooks/useFriends";
 import { useDebounce } from "@/hooks/useDebounce";
 
@@ -124,15 +125,22 @@ const FriendList = () => {
   return (
     <div className="space-y-3">
       {friends.map(({ profile, friendshipId }) => (
-        <div key={profile.uid} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50">
+        // ▼▼▼▼▼ Linkコンポーネントでラップする ▼▼▼▼▼
+        <Link href={`/app/profile/${profile.uid}`} key={profile.uid} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
           <div className="h-10 w-10 rounded-full bg-gray-200 relative overflow-hidden">
             {profile.photoURL && <Image src={profile.photoURL} alt={profile.displayName || ""} fill className="object-cover" />}
           </div>
           <div className="flex-1">
             <p className="font-bold">{profile.username ?? profile.displayName}</p>
           </div>
+          {/* Linkコンポーネントの内側でインタラクティブな要素(button)を使う場合、
+            クリックイベントの伝播を止める(stopPropagation)必要があります。
+            これにより、ボタンを押したときにページ遷移が起きるのを防ぎます。
+           */}
           <button
-            onClick={() => {
+            onClick={(e) => {
+              e.preventDefault(); 
+              e.stopPropagation();
               if (window.confirm(`${profile.username ?? profile.displayName}さんをフレンドから削除しますか？`)) {
                 remove.mutate(friendshipId);
               }
@@ -142,7 +150,8 @@ const FriendList = () => {
           >
             解除
           </button>
-        </div>
+        </Link>
+        // ▲▲▲▲▲ 変更ここまで ▲▲▲▲▲
       ))}
     </div>
   );

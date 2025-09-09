@@ -3,7 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { db, storage, auth } from "@/lib/firebase";
 import {
   addDoc, collection, getDocs, orderBy, query, serverTimestamp,
-  doc, getDoc, setDoc, deleteDoc, updateDoc, increment, collectionGroup, where, getDocsFromServer
+  doc, getDoc, setDoc, deleteDoc, updateDoc, increment, collectionGroup, where, getDocsFromServer,
+  QueryConstraint
 } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes, deleteObject } from "firebase/storage";
 import { QuestCategory } from "./useQuests";
@@ -45,14 +46,33 @@ const getJSTDateString = () => {
   return jstNow.toISOString().split('T')[0];
 };
 
-export function usePosts(questId?: string) {
+
+export function usePosts({ questId, userId }: { questId?: string, userId?: string } = {}) {
   return useQuery<Post[]>({
-    queryKey: ["posts", questId ?? "all"],
+    queryKey: ["posts", questId ?? "all", userId ?? "all"],
     queryFn: async () => {
-      const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
+      // ▼▼▼▼▼ ここから修正 ▼▼▼▼▼
+      const constraints: QueryConstraint[] = [];
+      if (userId) {
+        constraints.push(where("uid", "==", userId));
+      } else {
+        // userIdがない場合（タイムラインなど）は、これまで通りcreatedAtで並べ替える
+        constraints.push(orderBy("createdAt", "desc"));
+      }
+      
+      const q = query(collection(db, "posts"), ...constraints);
       const snap = await getDocs(q);
       let list = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Post, "id">) }));
-      if (questId) list = list.filter((p) => p.questId === questId);
+      
+      // userIdがある場合のみ、クライアントサイドで並べ替えを行う
+      if (userId) {
+        list.sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
+      }
+      // ▲▲▲▲▲ 修正ここまで ▲▲▲▲▲
+      
+      if (questId) {
+        list = list.filter((p) => p.questId === questId);
+      }
       return list;
     },
   });
@@ -163,13 +183,11 @@ export function useCreatePost() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["posts"] });
       qc.invalidateQueries({ queryKey: ["profile-me"] });
-      // 👇 この行を追加しました
       qc.invalidateQueries({ queryKey: ["posts", "for-my-quest"] });
     },
   });
 }
 
-// ...以降のコードは変更なし...
 export function useToggleLike() {
   const qc = useQueryClient();
   return useMutation({

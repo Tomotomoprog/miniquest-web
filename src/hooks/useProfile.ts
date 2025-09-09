@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { auth, db, storage, functions } from "@/lib/firebase"; // 👈 functions をインポート
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { computeClass, UserStats, ClassResult, computeXpProgress } from "@/utils/progression";
-import { updateProfile } from "firebase/auth";
+import { updateProfile as updateAuthProfile } from "firebase/auth";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { httpsCallable } from "firebase/functions"; // 👈 これを追加
 
@@ -24,6 +24,7 @@ type ProfileData = {
   xpProgress: ReturnType<typeof computeXpProgress>;
 };
 
+// ログインユーザー自身のプロフィールを取得するフック
 export function useMyProfile() {
   const uid = auth.currentUser?.uid;
   return useQuery<ProfileData>({
@@ -58,7 +59,39 @@ export function useMyProfile() {
   });
 }
 
-// ▼▼▼▼▼ このフックを Cloud Function を呼び出すように変更 ▼▼▼▼▼
+// ▼▼▼▼▼ 新しく追加したフック ▼▼▼▼▼
+// 指定したユーザーIDのプロフィールを取得するフック
+export function useUserProfile(userId?: string) {
+  return useQuery<ProfileData>({
+    queryKey: ["profile", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      if (!userId) throw new Error("User ID is required");
+      const snap = await getDoc(doc(db, "users", userId));
+      if (!snap.exists()) {
+        throw new Error("User not found");
+      }
+      
+      const data = snap.data() as Partial<UserProfile>;
+      const profile: UserProfile = {
+        uid: userId,
+        displayName: data.displayName ?? null,
+        photoURL: data.photoURL ?? null,
+        username: data.username,
+        uniqueTag: data.uniqueTag,
+        xp: data.xp ?? 0,
+        stats: data.stats ?? { Life: 0, Study: 0, Physical: 0, Social: 0, Creative: 0, Mental: 0 },
+      };
+
+      const xpProgress = computeXpProgress(profile.xp);
+      const classInfo = computeClass(profile.stats, xpProgress.level);
+      
+      return { profile, level: xpProgress.level, classInfo, xpProgress };
+    },
+  });
+}
+// ▲▲▲▲▲ 追加ここまで ▲▲▲▲▲
+
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
 
@@ -67,23 +100,18 @@ export function useUpdateProfile() {
       if (!auth.currentUser) throw new Error("Not authenticated");
       if (!payload.displayName.trim()) throw new Error("Display name cannot be empty");
 
-      // "updateUserProfile" という名前のCloud Functionを呼び出す準備
       const updateUserProfileCallable = httpsCallable(functions, 'updateUserProfile');
-      
-      // Cloud Function に displayName を渡して実行
       const result = await updateUserProfileCallable({ displayName: payload.displayName.trim() });
       
       return result.data;
     },
     onSuccess: () => {
-      // 関連するキャッシュを無効化してデータを再取得
       queryClient.invalidateQueries({ queryKey: ["profile-me"] });
       queryClient.invalidateQueries({ queryKey: ["users"] });
       queryClient.invalidateQueries({ queryKey: ["friends"] });
     },
   });
 }
-// ▲▲▲▲▲ 修正ここまで ▲▲▲▲▲
 
 export function useUpdateAvatar() {
   const queryClient = useQueryClient();
@@ -98,7 +126,7 @@ export function useUpdateAvatar() {
       await uploadBytes(fileRef, file);
       const photoURL = await getDownloadURL(fileRef);
 
-      await updateProfile(user, { photoURL });
+      await updateAuthProfile(user, { photoURL });
       const userDocRef = doc(db, "users", user.uid);
       await setDoc(userDocRef, { photoURL }, { merge: true });
 
