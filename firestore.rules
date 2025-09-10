@@ -65,6 +65,7 @@ service cloud.firestore {
       // - ログインしている
       // - 自分が申請の受信者である
       // - 既存のステータスが "pending" である
+      // - 新しいステータスが "accepted" または "declined" である
       allow update: if request.auth != null
                     && request.auth.uid == resource.data.recipientId
                     && resource.data.status == "pending"
