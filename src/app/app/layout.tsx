@@ -1,17 +1,20 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
+import { auth } from "@/lib/firebase";
+import { signOut } from "firebase/auth";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const navLinks = [
     { href: "/app", label: "HOME" },
     { href: "/app/my-quest", label: "MY QUEST" },
     { href: "/app/timeline", label: "TIMELINE" },
-    { href: "/app/friends", label: "FRIENDS" }, // 👈 この行を追加
+    { href: "/app/friends", label: "FRIENDS" },
     { href: "/app/profile", label: "PROFILE" },
   ];
 
@@ -19,6 +22,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setIsMenuOpen(false);
   }, [pathname]);
+
+  // ログアウト処理
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      router.replace("/auth");
+    } catch (error) {
+      console.error("Logout failed:", error);
+      alert("ログアウトに失敗しました。");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -41,6 +55,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 {label}
               </Link>
             ))}
+            <button onClick={handleLogout} className="btn btn-ghost">
+              ログアウト
+            </button>
           </nav>
 
           {/* ハンバーガーボタン (md未満で表示) */}
@@ -50,7 +67,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               className="btn-icon"
               aria-label="メニューを開く"
             >
-              {/* ハンバーガーアイコン (SVG) */}
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="3" y1="12" x2="21" y2="12"></line>
                 <line x1="3" y1="6" x2="21" y2="6"></line>
@@ -76,6 +92,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 {label}
               </Link>
             ))}
+            <button onClick={handleLogout} className="btn btn-ghost w-full">
+              ログアウト
+            </button>
           </nav>
         </div>
       )}
