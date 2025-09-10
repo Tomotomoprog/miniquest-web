@@ -55,24 +55,15 @@ service cloud.firestore {
       // 読み取り：自分に関係のあるフレンド情報のみ許可
       allow read: if request.auth != null && request.auth.uid in resource.data.userIds;
       // 作成 (友達申請)：
-      // - ログインしている
-      // - 申請者が自分自身である
-      // - ステータスが "pending" である
       allow create: if request.auth != null
                     && request.auth.uid == request.resource.data.requesterId
                     && request.resource.data.status == "pending";
       // 更新 (申請の承認・拒否)：
-      // - ログインしている
-      // - 自分が申請の受信者である
-      // - 既存のステータスが "pending" である
-      // - 新しいステータスが "accepted" または "declined" である
       allow update: if request.auth != null
                     && request.auth.uid == resource.data.recipientId
                     && resource.data.status == "pending"
                     && (request.resource.data.status == "accepted" || request.resource.data.status == "declined");
       // 削除 (友達解除 または 申請取り消し):
-      // - ログインしている
-      // - 自分が関係者である
       allow delete: if request.auth != null && request.auth.uid in resource.data.userIds;
     }
   }
