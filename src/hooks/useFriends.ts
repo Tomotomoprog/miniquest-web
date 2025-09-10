@@ -129,7 +129,7 @@ export function useSendFriendRequest() {
 }
 
 /**
- * 自分宛の友達申請一覧を取得するためのカスタムフック
+ * 自分宛の友達申請一覧を取得するためのカスタムフック (修正版)
  */
 export function useFriendRequests() {
   const uid = auth.currentUser?.uid;
@@ -138,15 +138,21 @@ export function useFriendRequests() {
     enabled: !!uid,
     queryFn: async () => {
       if (!uid) return [];
+      
+      // ▼▼▼▼▼ クエリを修正 ▼▼▼▼▼
       const q = query(
         collection(db, "friendships"),
-        where("recipientId", "==", uid),
-        where("status", "==", "pending")
+        where("userIds", "array-contains", uid), // userIdsに自分を含むもので絞り込み
+        where("status", "==", "pending")      // statusがpendingのものに絞り込み
       );
       const snap = await getDocs(q);
       if (snap.empty) return [];
 
-      const requests = snap.docs.map(d => ({ id: d.id, ...d.data() } as Friendship));
+      // クライアント側で、自分が受け取った申請のみをフィルタリング
+      const requests = snap.docs
+        .map(d => ({ id: d.id, ...d.data() } as Friendship))
+        .filter(f => f.recipientId === uid);
+      // ▲▲▲▲▲ 修正ここまで ▲▲▲▲▲
 
       // 申請者のプロフィール情報を取得
       const profiles: { friendship: Friendship; requesterProfile: UserProfile }[] = [];
@@ -208,7 +214,6 @@ export function useDeclineFriendRequest() {
   });
 }
 
-// ▼▼▼▼▼ このフックを修正 ▼▼▼▼▼
 /**
  * 友達一覧を取得するためのカスタムフック
  */
@@ -250,7 +255,6 @@ export function useFriends() {
     },
   });
 }
-// ▲▲▲▲▲ 修正ここまで ▲▲▲▲▲
 
 /**
  * 友達を削除するためのカスタムフック
