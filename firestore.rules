@@ -10,9 +10,12 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // 【Users】ユーザーは自分の情報のみ読み書きできる
+    // 【Users】ユーザー情報のルール
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // 読み取りはログインユーザー全員に許可
+      allow read: if request.auth != null;
+      // 書き込みは自分自身のみに許可
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
 
     // 【MyQuests】ユーザーは自分のマイクエストのみ読み書きできる
@@ -29,6 +32,7 @@ service cloud.firestore {
       allow create: if request.auth != null && request.auth.uid == request.resource.data.uid;
       // 自分の投稿だけを更新・削除できる
       allow update, delete: if request.auth != null && request.auth.uid == resource.data.uid;
+
       // 【Likes】投稿への「いいね」に関するサブルール
       match /likes/{userId} {
         allow read: if request.auth != null;
@@ -46,13 +50,10 @@ service cloud.firestore {
       }
     }
     
-    // ▼▼▼▼▼ ここから下を追記 ▼▼▼▼▼
-
     // 【Friendships】フレンド関係に関するルール
     match /friendships/{friendshipId} {
       // 読み取り：自分に関係のあるフレンド情報のみ許可
       allow read: if request.auth != null && request.auth.uid in resource.data.userIds;
-
       // 作成 (友達申請)：
       // - ログインしている
       // - 申請者が自分自身である
@@ -60,22 +61,18 @@ service cloud.firestore {
       allow create: if request.auth != null
                     && request.auth.uid == request.resource.data.requesterId
                     && request.resource.data.status == "pending";
-
       // 更新 (申請の承認・拒否)：
       // - ログインしている
       // - 自分が申請の受信者である
       // - 既存のステータスが "pending" である
-      // - 新しいステータスが "accepted" または "declined" である
       allow update: if request.auth != null
                     && request.auth.uid == resource.data.recipientId
                     && resource.data.status == "pending"
                     && (request.resource.data.status == "accepted" || request.resource.data.status == "declined");
-      
       // 削除 (友達解除 または 申請取り消し):
       // - ログインしている
       // - 自分が関係者である
       allow delete: if request.auth != null && request.auth.uid in resource.data.userIds;
     }
-    // ▲▲▲▲▲ ここまで ▲▲▲▲▲
   }
 }
