@@ -1,20 +1,15 @@
 "use client";
 import { useState } from "react";
 import Image from "next/image";
-import Link from "next/link"; // 👈 Linkをインポート
-import { useAcceptFriendRequest, useDeclineFriendRequest, useFriendRequests, useFriends, useRemoveFriend, useSendFriendRequest, useUsers, UserWithFriendshipStatus } from "@/hooks/useFriends";
+import Link from "next/link";
+import { useAcceptFriendRequest, useDeclineFriendRequest, useFriendRequests, useFriends, useRemoveFriend, useSendFriendRequest, useUsers, UserWithFriendshipStatus, useSuggestedUsers } from "@/hooks/useFriends";
 import { useDebounce } from "@/hooks/useDebounce";
 
-// =================================================================
-// ユーザー検索タブのコンポーネント
-// =================================================================
-const UserSearch = () => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const debouncedSearchTerm = useDebounce(searchTerm, 500);
-  const { data: users, isLoading } = useUsers(debouncedSearchTerm);
+// ユーザーリストを表示するための共通コンポーネント
+const UserListItem = ({ user }: { user: UserWithFriendshipStatus }) => {
   const sendRequest = useSendFriendRequest();
-
-  const ActionButton = ({ user }: { user: UserWithFriendshipStatus }) => {
+  
+  const ActionButton = () => {
     switch (user.friendshipStatus) {
       case "self":
         return <span className="text-sm text-dim">自分</span>;
@@ -40,6 +35,28 @@ const UserSearch = () => {
   };
 
   return (
+    <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50">
+      <Link href={`/app/profile/${user.uid}`} className="h-10 w-10 rounded-full bg-gray-200 relative overflow-hidden">
+        {user.photoURL && <Image src={user.photoURL} alt={user.displayName || ""} fill className="object-cover" />}
+      </Link>
+      <div className="flex-1">
+        <Link href={`/app/profile/${user.uid}`} className="font-bold hover:underline">{user.username ?? user.displayName}</Link>
+      </div>
+      <ActionButton />
+    </div>
+  )
+}
+
+// =================================================================
+// ユーザー検索タブのコンポーネント
+// =================================================================
+const UserSearch = () => {
+  const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
+  const { data: users, isLoading: isSearching } = useUsers(debouncedSearchTerm);
+  const { data: suggestedUsers, isLoading: isLoadingSuggestions } = useSuggestedUsers(); // 👈 修正: この行を追加
+
+  return (
     <div className="space-y-4">
       <input
         type="text"
@@ -49,21 +66,23 @@ const UserSearch = () => {
         className="input"
       />
       <div className="space-y-3">
-        {isLoading && <p className="text-dim text-center">検索中...</p>}
-        {users?.map(user => (
-          <div key={user.uid} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50">
-            <div className="h-10 w-10 rounded-full bg-gray-200 relative overflow-hidden">
-              {user.photoURL && <Image src={user.photoURL} alt={user.displayName || ""} fill className="object-cover" />}
-            </div>
-            <div className="flex-1">
-              <p className="font-bold">{user.username ?? user.displayName}</p>
-            </div>
-            <ActionButton user={user} />
+        {/* ▼▼▼▼▼ この部分を修正しました ▼▼▼▼▼ */}
+        {debouncedSearchTerm ? (
+          <>
+            {isSearching && <p className="text-dim text-center">検索中...</p>}
+            {users?.map(user => <UserListItem key={user.uid} user={user} />)}
+            {!isSearching && users?.length === 0 && (
+              <p className="text-dim text-center py-4">ユーザーが見つかりません。</p>
+            )}
+          </>
+        ) : (
+          <div>
+            <h3 className="font-bold mb-2">おすすめユーザー</h3>
+            {isLoadingSuggestions && <p className="text-dim text-center">読み込み中...</p>}
+            {suggestedUsers?.map(user => <UserListItem key={user.uid} user={user} />)}
           </div>
-        ))}
-        {debouncedSearchTerm && !isLoading && users?.length === 0 && (
-          <p className="text-dim text-center py-4">ユーザーが見つかりません。</p>
         )}
+        {/* ▲▲▲▲▲ 修正ここまで ▲▲▲▲▲ */}
       </div>
     </div>
   );
@@ -84,11 +103,11 @@ const FriendRequests = () => {
     <div className="space-y-3">
       {requests.map(({ friendship, requesterProfile }) => (
         <div key={friendship.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50">
-          <div className="h-10 w-10 rounded-full bg-gray-200 relative overflow-hidden">
+          <Link href={`/app/profile/${requesterProfile.uid}`} className="h-10 w-10 rounded-full bg-gray-200 relative overflow-hidden">
             {requesterProfile.photoURL && <Image src={requesterProfile.photoURL} alt={requesterProfile.displayName || ""} fill className="object-cover" />}
-          </div>
+          </Link>
           <div className="flex-1">
-            <p className="font-bold">{requesterProfile.username ?? requesterProfile.displayName}</p>
+            <Link href={`/app/profile/${requesterProfile.uid}`} className="font-bold hover:underline">{requesterProfile.username ?? requesterProfile.displayName}</Link>
           </div>
           <div className="flex gap-2">
             <button
@@ -125,7 +144,6 @@ const FriendList = () => {
   return (
     <div className="space-y-3">
       {friends.map(({ profile, friendshipId }) => (
-        // ▼▼▼▼▼ Linkコンポーネントでラップする ▼▼▼▼▼
         <Link href={`/app/profile/${profile.uid}`} key={profile.uid} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
           <div className="h-10 w-10 rounded-full bg-gray-200 relative overflow-hidden">
             {profile.photoURL && <Image src={profile.photoURL} alt={profile.displayName || ""} fill className="object-cover" />}
@@ -133,10 +151,6 @@ const FriendList = () => {
           <div className="flex-1">
             <p className="font-bold">{profile.username ?? profile.displayName}</p>
           </div>
-          {/* Linkコンポーネントの内側でインタラクティブな要素(button)を使う場合、
-            クリックイベントの伝播を止める(stopPropagation)必要があります。
-            これにより、ボタンを押したときにページ遷移が起きるのを防ぎます。
-           */}
           <button
             onClick={(e) => {
               e.preventDefault(); 
@@ -151,7 +165,6 @@ const FriendList = () => {
             解除
           </button>
         </Link>
-        // ▲▲▲▲▲ 変更ここまで ▲▲▲▲▲
       ))}
     </div>
   );

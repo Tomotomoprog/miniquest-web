@@ -1,6 +1,6 @@
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { initializeApp } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
 
 // Firebase Admin SDKを初期化
@@ -16,16 +16,32 @@ export const updateUserProfile = onCall(async (request) => {
   const uid = request.auth.uid;
   const newDisplayName = request.data.displayName;
 
-  if (typeof newDisplayName !== "string" || newDisplayName.trim().length === 0) {
-    throw new HttpsError("invalid-argument", "Display name must be a non-empty string.");
+  // --- 入力値のバリデーション ---
+  if (typeof newDisplayName !== "string" || newDisplayName.trim().length === 0 || newDisplayName.length > 20) {
+    throw new HttpsError("invalid-argument", "Display name must be a non-empty string and less than 20 characters.");
   }
 
   const db = getFirestore();
   const auth = getAuth();
+  const userDocRef = db.collection("users").doc(uid);
 
-  // ▼▼▼▼▼ この部分を修正 ▼▼▼▼▼
-  let uniqueTag: string = ""; // 👈 初期値を設定
+  // ▼▼▼▼▼ ここから修正 ▼▼▼▼▼
+  const userDoc = await userDocRef.get();
+  const userData = userDoc.data();
+
+  // --- 前回の名前変更からの経過時間をチェック ---
+  if (userData?.displayNameLastChanged) {
+    const lastChanged = userData.displayNameLastChanged.toDate();
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    if (lastChanged > thirtyDaysAgo) {
+      throw new HttpsError("failed-precondition", "You can only change your name once every 30 days.");
+    }
+  }
   // ▲▲▲▲▲ 修正ここまで ▲▲▲▲▲
+
+  let uniqueTag: string = "";
   let isUnique = false;
   let finalUsername = "";
   let attempts = 0;
@@ -50,10 +66,11 @@ export const updateUserProfile = onCall(async (request) => {
 
   try {
     // Firestoreのユーザー情報を更新
-    await db.collection("users").doc(uid).set({
+    await userDocRef.set({
       displayName: newDisplayName,
       username: finalUsername,
       uniqueTag: uniqueTag,
+      displayNameLastChanged: FieldValue.serverTimestamp(), // 👈 修正: この行を追加
     }, { merge: true });
 
     // Firebase Authenticationのプロフィールも更新

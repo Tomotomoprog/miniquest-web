@@ -38,6 +38,130 @@ export type UserWithFriendshipStatus = UserProfile & {
 };
 
 /**
+ * 特定のユーザーのフレンド一覧を、現在のユーザーとの関係性付きで取得するカスタムフック
+ */
+export function useFriendsOfUser(targetUserId?: string) {
+    const currentUser = auth.currentUser;
+    return useQuery<UserWithFriendshipStatus[]>({
+        queryKey: ["friends-of", targetUserId, currentUser?.uid],
+        enabled: !!targetUserId && !!currentUser && targetUserId !== currentUser.uid,
+        queryFn: async () => {
+            if (!targetUserId || !currentUser) return [];
+
+            // 1. 対象ユーザーのフレンドのIDリストを取得
+            const friendsQuery = query(
+                collection(db, "friendships"),
+                where("userIds", "array-contains", targetUserId),
+                where("status", "==", "accepted")
+            );
+            const friendsSnap = await getDocs(friendsQuery);
+            if (friendsSnap.empty) return [];
+            
+            const friendIds = friendsSnap.docs
+                .map(doc => doc.data().userIds.find((id: string) => id !== targetUserId))
+                .filter(id => id && id !== currentUser.uid);
+            
+            if (friendIds.length === 0) return [];
+
+            // 2. フレンドのプロフィール情報を取得
+            const friendProfilesQuery = query(collection(db, "users"), where("__name__", "in", friendIds));
+            const friendProfilesSnap = await getDocs(friendProfilesQuery);
+            const friendProfiles = friendProfilesSnap.docs.map(d => ({ ...d.data(), uid: d.id } as UserProfile));
+
+            // 3. 現在のユーザーのフレンドシップ情報をすべて取得
+            const currentUserFriendshipsQuery = query(
+                collection(db, "friendships"),
+                where("userIds", "array-contains", currentUser.uid)
+            );
+            const currentUserFriendshipsSnap = await getDocs(currentUserFriendshipsQuery);
+            const currentUserFriendships = currentUserFriendshipsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Friendship));
+            
+            // 4. プロフィールとフレンドシップ情報をマージして、最終的なステータスを決定
+            const result = friendProfiles.map(profile => {
+                const friendship = currentUserFriendships.find(f => f.userIds.includes(profile.uid));
+                
+                if (friendship) {
+                    if (friendship.status === "accepted") {
+                        return { ...profile, friendshipStatus: "friends", friendshipId: friendship.id } as UserWithFriendshipStatus;
+                    }
+                    if (friendship.status === "pending") {
+                        return friendship.requesterId === currentUser.uid
+                            ? { ...profile, friendshipStatus: "pending-sent", friendshipId: friendship.id } as UserWithFriendshipStatus
+                            : { ...profile, friendshipStatus: "pending-received", friendshipId: friendship.id } as UserWithFriendshipStatus;
+                    }
+                }
+                return { ...profile, friendshipStatus: "not-friends" } as UserWithFriendshipStatus;
+            });
+
+            return result;
+        }
+    });
+}
+
+/**
+ * おすすめユーザー（ランダム）を取得するためのカスタムフック
+ */
+export function useSuggestedUsers(count = 5) {
+  const currentUser = auth.currentUser;
+  return useQuery<UserWithFriendshipStatus[]>({
+    queryKey: ["suggested-users", currentUser?.uid],
+    enabled: !!currentUser,
+    queryFn: async () => {
+      if (!currentUser) return [];
+
+      const randomId = doc(collection(db, "users")).id;
+      const q = query(
+        collection(db, "users"),
+        where("__name__", ">=", randomId),
+        limit(count)
+      );
+      const userSnap = await getDocs(q);
+      
+      let users = userSnap.docs.map(d => ({ ...d.data(), uid: d.id } as UserProfile))
+        .filter(u => u.uid !== currentUser.uid);
+
+      if (users.length < count) {
+        const q2 = query(
+            collection(db, "users"),
+            where("__name__", "<", randomId),
+            limit(count - users.length)
+        );
+        const userSnap2 = await getDocs(q2);
+        const moreUsers = userSnap2.docs.map(d => ({ ...d.data(), uid: d.id } as UserProfile))
+          .filter(u => u.uid !== currentUser.uid);
+        users = [...users, ...moreUsers];
+      }
+
+      const friendshipsRef = collection(db, "friendships");
+      const friendshipQuery = query(
+        friendshipsRef,
+        where("userIds", "array-contains", currentUser.uid)
+      );
+      const friendshipSnap = await getDocs(friendshipQuery);
+      const friendships = friendshipSnap.docs.map(d => ({ id: d.id, ...d.data() } as Friendship));
+      
+      const result = users.map(user => {
+        const friendship = friendships.find(f => f.userIds.includes(user.uid));
+        if (friendship) {
+          if (friendship.status === "accepted") {
+            return { ...user, friendshipStatus: "friends", friendshipId: friendship.id } as UserWithFriendshipStatus;
+          }
+          if (friendship.status === "pending") {
+            return friendship.requesterId === currentUser.uid
+              ? { ...user, friendshipStatus: "pending-sent", friendshipId: friendship.id } as UserWithFriendshipStatus
+              : { ...user, friendshipStatus: "pending-received", friendshipId: friendship.id } as UserWithFriendshipStatus;
+          }
+        }
+        return { ...user, friendshipStatus: "not-friends" } as UserWithFriendshipStatus;
+      });
+
+      return result;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/**
  * ユーザーを検索するためのカスタムフック
  */
 export function useUsers(searchTerm: string) {
@@ -47,8 +171,6 @@ export function useUsers(searchTerm: string) {
     enabled: searchTerm.trim().length > 0,
     queryFn: async () => {
       if (!currentUser) return [];
-
-      // 1. ユーザー名でユーザーを検索
       const usersRef = collection(db, "users");
       const q = query(
         usersRef,
@@ -62,9 +184,6 @@ export function useUsers(searchTerm: string) {
 
       if (users.length === 0) return [];
       
-      const userIds = users.map(u => u.uid);
-
-      // 2. 検索結果ユーザーと自分とのフレンド関係を取得
       const friendshipsRef = collection(db, "friendships");
       const friendshipQuery = query(
         friendshipsRef,
@@ -73,24 +192,19 @@ export function useUsers(searchTerm: string) {
       const friendshipSnap = await getDocs(friendshipQuery);
       const friendships = friendshipSnap.docs.map(d => ({ id: d.id, ...d.data() } as Friendship));
       
-      // 3. ユーザーごとにフレンド状況を判定
       const result = users.map(user => {
         if (user.uid === currentUser.uid) {
           return { ...user, friendshipStatus: "self" } as UserWithFriendshipStatus;
         }
-
         const friendship = friendships.find(f => f.userIds.includes(user.uid));
-
         if (friendship) {
           if (friendship.status === "accepted") {
             return { ...user, friendshipStatus: "friends", friendshipId: friendship.id } as UserWithFriendshipStatus;
           }
           if (friendship.status === "pending") {
-            if (friendship.requesterId === currentUser.uid) {
-              return { ...user, friendshipStatus: "pending-sent", friendshipId: friendship.id } as UserWithFriendshipStatus;
-            } else {
-              return { ...user, friendshipStatus: "pending-received", friendshipId: friendship.id } as UserWithFriendshipStatus;
-            }
+            return friendship.requesterId === currentUser.uid 
+              ? { ...user, friendshipStatus: "pending-sent", friendshipId: friendship.id } as UserWithFriendshipStatus
+              : { ...user, friendshipStatus: "pending-received", friendshipId: friendship.id } as UserWithFriendshipStatus;
           }
         }
         return { ...user, friendshipStatus: "not-friends" } as UserWithFriendshipStatus;
@@ -113,7 +227,7 @@ export function useSendFriendRequest() {
       if (user.uid === recipientId) throw new Error("自分自身に申請は送れません");
 
       const friendshipData = {
-        userIds: [user.uid, recipientId].sort(), // IDをソートして一意性を担保
+        userIds: [user.uid, recipientId].sort(),
         requesterId: user.uid,
         recipientId: recipientId,
         status: "pending" as const,
@@ -122,14 +236,15 @@ export function useSendFriendRequest() {
       await addDoc(collection(db, "friendships"), friendshipData);
     },
     onSuccess: () => {
-      // ユーザー検索結果を再取得してボタン表示を更新
       qc.invalidateQueries({ queryKey: ["users"] });
+      qc.invalidateQueries({ queryKey: ["suggested-users"] });
+      qc.invalidateQueries({ queryKey: ["friends-of"] });
     },
   });
 }
 
 /**
- * 自分宛の友達申請一覧を取得するためのカスタムフック (修正版)
+ * 自分宛の友達申請一覧を取得するためのカスタムフック
  */
 export function useFriendRequests() {
   const uid = auth.currentUser?.uid;
@@ -139,25 +254,20 @@ export function useFriendRequests() {
     queryFn: async () => {
       if (!uid) return [];
       
-      // ▼▼▼▼▼ クエリを修正 ▼▼▼▼▼
       const q = query(
         collection(db, "friendships"),
-        where("userIds", "array-contains", uid), // userIdsに自分を含むもので絞り込み
-        where("status", "==", "pending")      // statusがpendingのものに絞り込み
+        where("userIds", "array-contains", uid),
+        where("status", "==", "pending")
       );
       const snap = await getDocs(q);
       if (snap.empty) return [];
 
-      // クライアント側で、自分が受け取った申請のみをフィルタリング
       const requests = snap.docs
         .map(d => ({ id: d.id, ...d.data() } as Friendship))
         .filter(f => f.recipientId === uid);
-      // ▲▲▲▲▲ 修正ここまで ▲▲▲▲▲
 
-      // 申請者のプロフィール情報を取得
       const profiles: { friendship: Friendship; requesterProfile: UserProfile }[] = [];
       for (const req of requests) {
-        // usersコレクションから displayName と photoURL を取得
         const userSnap = await getDoc(doc(db, "users", req.requesterId));
         const userData = userSnap.data() as Partial<UserProfile> | undefined;
 
@@ -167,6 +277,7 @@ export function useFriendRequests() {
             uid: req.requesterId,
             displayName: userData?.displayName || "ユーザー",
             photoURL: userData?.photoURL || null,
+            username: userData?.username,
             xp: userData?.xp || 0,
             stats: userData?.stats || { Life: 0, Study: 0, Physical: 0, Social: 0, Creative: 0, Mental: 0 },
           },
@@ -205,7 +316,6 @@ export function useDeclineFriendRequest() {
   return useMutation({
     mutationFn: async (friendshipId: string) => {
       const ref = doc(db, "friendships", friendshipId);
-      // declinedにするか、ドキュメントごと削除するかは仕様による。今回は削除する。
       await deleteDoc(ref);
     },
     onSuccess: () => {
@@ -219,7 +329,7 @@ export function useDeclineFriendRequest() {
  */
 export function useFriends() {
   const uid = auth.currentUser?.uid;
-  return useQuery<{ profile: UserProfile; friendshipId: string }[]>({ // 戻り値の型を変更
+  return useQuery<{ profile: UserProfile; friendshipId: string }[]>({
     queryKey: ["friends", uid],
     enabled: !!uid,
     queryFn: async () => {
@@ -234,9 +344,6 @@ export function useFriends() {
       if (snap.empty) return [];
       
       const friendships = snap.docs.map(d => ({ id: d.id, ...d.data() } as Friendship));
-      const friendIds = friendships.map(f => f.userIds.find(id => id !== uid)!);
-
-      if (friendIds.length === 0) return [];
       
       const friends: { profile: UserProfile; friendshipId: string }[] = [];
       
@@ -246,7 +353,7 @@ export function useFriends() {
         if (userSnap.exists()) {
           friends.push({
             profile: { uid: userSnap.id, ...userSnap.data() } as UserProfile,
-            friendshipId: f.id, // friendshipIdを追加
+            friendshipId: f.id,
           });
         }
       }
@@ -268,6 +375,7 @@ export function useRemoveFriend() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["friends"] });
       qc.invalidateQueries({ queryKey: ["users"] });
+      qc.invalidateQueries({ queryKey: ["friends-of"] });
     },
   });
 }

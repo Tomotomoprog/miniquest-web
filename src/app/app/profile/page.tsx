@@ -45,7 +45,8 @@ export default function ProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [displayName, setDisplayName] = useState("");
-  
+  const [error, setError] = useState<string | null>(null); // 👈 修正: この行を追加
+
   const userId = auth.currentUser?.uid;
   const { data: quests, isLoading: isLoadingQuests } = useFetchMyQuests(userId);
   const { data: posts, isLoading: isLoadingPosts } = usePosts({ userId });
@@ -67,12 +68,21 @@ export default function ProfilePage() {
   }, [data?.profile.displayName]);
 
   const handleSaveName = async () => {
+    setError(null); // 👈 修正: この行を追加
     if (displayName.trim() === data?.profile.displayName) {
       setIsEditing(false);
       return;
     }
-    await updateProfile.mutateAsync({ displayName });
-    setIsEditing(false);
+    try { // 👈 修正: この行を追加
+      await updateProfile.mutateAsync({ displayName });
+      setIsEditing(false);
+    } catch (e: any) { // 👈 修正: この行を追加
+        if (e.message.includes('once every 30 days')) {
+            setError("名前の変更は30日に1回までです。");
+        } else {
+            setError("エラーが発生しました。時間をおいて再度お試しください。");
+        }
+    }
   };
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -125,6 +135,9 @@ export default function ProfilePage() {
                 className="input text-center text-2xl font-bold"
                 placeholder="新しい名前"
               />
+              {/* ▼▼▼▼▼ この部分を修正しました ▼▼▼▼▼ */}
+              {error && <p className="text-red-500 text-sm">{error}</p>}
+              {/* ▲▲▲▲▲ 修正ここまで ▲▲▲▲▲ */}
               <div className="flex gap-2">
                 <button onClick={() => setIsEditing(false)} className="btn-ghost btn flex-1">キャンセル</button>
                 <button onClick={handleSaveName} disabled={updateProfile.isPending} className="btn-primary btn flex-1">

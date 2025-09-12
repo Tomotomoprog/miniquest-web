@@ -7,7 +7,11 @@ import { useFetchMyQuests, MyQuest } from "@/hooks/useMyQuests";
 import { usePosts } from "@/hooks/usePosts";
 import Link from "next/link";
 import PostCard from "@/components/PostCard";
-import { useParams } from "next/navigation"; // 👈 useParamsをインポート
+import { useParams } from "next/navigation";
+// ▼▼▼▼▼ ここから追加 ▼▼▼▼▼
+import { useFriendsOfUser, useSendFriendRequest, UserWithFriendshipStatus } from "@/hooks/useFriends";
+import { auth } from "@/lib/firebase";
+// ▲▲▲▲▲ 追加ここまで ▲▲▲▲▲
 
 // プログレスバーのコンポーネント
 const ProgressBar = ({ value, max, label, colorClass }: { value: number, max: number, label: string, colorClass: string }) => {
@@ -38,13 +42,59 @@ const QuestListItem = ({ quest }: { quest: MyQuest }) => {
     )
   };
 
-export default function UserProfilePage() { // 👈 引数から params を削除
-  const params = useParams(); // 👈 useParamsフックを使ってパラメータを取得
-  const userId = params.userId as string; // 👈 取得したパラメータからIDを取り出す
+// ▼▼▼▼▼ ここから追加 ▼▼▼▼▼
+// ユーザーリストアイテムの共通コンポーネント
+const UserListItem = ({ user }: { user: UserWithFriendshipStatus }) => {
+  const sendRequest = useSendFriendRequest();
+  
+  const ActionButton = () => {
+    switch (user.friendshipStatus) {
+      case "self":
+        return <span className="text-sm text-dim">自分</span>;
+      case "friends":
+        return <span className="text-sm font-bold text-green-600">フレンド</span>;
+      case "pending-sent":
+        return <span className="text-sm text-dim">申請済み</span>;
+      case "pending-received":
+        return <button className="btn btn-ghost !py-1 !px-3 text-xs" disabled>承認待ち</button>;
+      case "not-friends":
+        return (
+          <button
+            onClick={() => sendRequest.mutate(user.uid)}
+            disabled={sendRequest.isPending}
+            className="btn btn-primary !py-1 !px-3 text-xs"
+          >
+            フレンド申請
+          </button>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50">
+      <Link href={`/app/profile/${user.uid}`} className="h-10 w-10 rounded-full bg-gray-200 relative overflow-hidden">
+        {user.photoURL && <Image src={user.photoURL} alt={user.displayName || ""} fill className="object-cover" />}
+      </Link>
+      <div className="flex-1">
+        <Link href={`/app/profile/${user.uid}`} className="font-bold hover:underline">{user.username ?? user.displayName}</Link>
+      </div>
+      <ActionButton />
+    </div>
+  )
+}
+// ▲▲▲▲▲ 追加ここまで ▲▲▲▲▲
+
+export default function UserProfilePage() {
+  const params = useParams();
+  const userId = params.userId as string;
+  const currentUser = auth.currentUser;
 
   const { data, isLoading, error } = useUserProfile(userId);
   const { data: quests, isLoading: isLoadingQuests } = useFetchMyQuests(userId);
   const { data: posts, isLoading: isLoadingPosts } = usePosts({ userId });
+  const { data: friends, isLoading: isLoadingFriends } = useFriendsOfUser(userId); // 👈 修正: この行を追加
 
   const activeQuests = useMemo(() => {
     return quests?.filter(q => q.status === 'active') ?? [];
@@ -61,7 +111,8 @@ export default function UserProfilePage() { // 👈 引数から params を削�
   if (error) {
     return <div className="card p-5 text-center text-red-600">Error: {error.message}</div>;
   }
-
+  
+  const isMyProfile = currentUser?.uid === userId; // 👈 修正: この行を追加
   const categories: (keyof UserStats)[] = ["Life", "Study", "Physical", "Social", "Creative", "Mental"];
 
   return (
@@ -94,24 +145,26 @@ export default function UserProfilePage() { // 👈 引数から params を削�
         </div>
       </section>
 
-      <section className="card p-6">
-        <h3 className="text-xl font-bold mb-4">ジャンル達成度</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6">
-          {categories.map((k) => {
-            const value = data?.profile.stats?.[k] ?? 0;
-            const nextMilestone = value === 0 ? 10 : Math.ceil(value / 10) * 10;
-            return (
-              <ProgressBar
-                key={k}
-                label={k}
-                value={value}
-                max={nextMilestone}
-                colorClass="bg-sky-500"
-              />
-            );
-          })}
-        </div>
-      </section>
+      {/* ▼▼▼▼▼ この部分を修正しました（フレンド一覧セクション） ▼▼▼▼▼ */}
+      {!isMyProfile && (
+        <section className="card p-6">
+          <h3 className="text-xl font-bold">{data?.profile.displayName}のフレンド</h3>
+          <div className="mt-4">
+            {isLoadingFriends ? (
+              <p className="text-dim text-center py-4">フレンドを読み込み中...</p>
+            ) : (
+              friends && friends.length > 0 ? (
+                  <div className="space-y-2">
+                      {friends.map(friend => <UserListItem key={friend.uid} user={friend} />)}
+                  </div>
+              ) : (
+                  <p className="text-dim text-center py-4">まだフレンドがいません。</p>
+              )
+            )}
+          </div>
+        </section>
+      )}
+      {/* ▲▲▲▲▲ 修正ここまで ▲▲▲▲▲ */}
 
       <section className="card p-6">
         <h3 className="text-xl font-bold">{data?.profile.displayName}の挑戦中のマイクエスト</h3>
