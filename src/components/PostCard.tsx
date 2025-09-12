@@ -35,7 +35,7 @@ const CommentSection = ({ postId }: { postId: string }) => {
         ))}
       </div>
       <form onSubmit={handleSubmit} className="flex gap-2">
-        <input 
+        <input
           type="text"
           value={commentText}
           onChange={(e) => setCommentText(e.target.value)}
@@ -56,7 +56,7 @@ export default function PostCard({ post }: { post: Post }) {
   const { data: likedSet } = useMyLikedPostIds();
   const toggleLike = useToggleLike();
   const deletePost = useDeletePost();
-  
+
   const currentUser = auth.currentUser;
   const liked = likedSet?.has(post.id);
   const isMyPost = currentUser?.uid === post.uid;
@@ -84,15 +84,28 @@ export default function PostCard({ post }: { post: Post }) {
         )}
       </div>
 
+      {/* ▼▼▼▼▼ この部分を修正しました ▼▼▼▼▼ */}
       {post.questTitle && (
-        <div className="text-xs text-dim bg-slate-50 p-2 rounded-md">🗺️ {post.questTitle}</div>
+        <div className="text-xs text-dim bg-slate-50 p-2 rounded-md">
+          <Link href={`/app/timeline?questId=${post.questId}`} className="hover:underline">
+            🗺️ {post.questTitle}
+          </Link>
+        </div>
       )}
+      {post.myQuestTitle && (
+        <div className="text-xs text-dim bg-slate-50 p-2 rounded-md">
+          <Link href={`/app/my-quest/${post.myQuestId}`} className="hover:underline">
+            🚀 {post.myQuestTitle}
+          </Link>
+        </div>
+      )}
+      {/* ▲▲▲▲▲ 修正ここまで ▲▲▲▲▲ */}
 
       {post.text && <p className="text-base leading-relaxed whitespace-pre-wrap">{post.text}</p>}
 
       {post.photoURL && (
-        <div className="relative w-full aspect-[4/5] media">
-          <Image src={post.photoURL} alt="" fill className="object-cover" />
+        <div className="relative w-full aspect-video media bg-gray-100">
+          <Image src={post.photoURL} alt="投稿画像" fill style={{ objectFit: 'contain' }} />
         </div>
       )}
 

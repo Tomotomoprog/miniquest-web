@@ -1,25 +1,9 @@
 "use client";
 import { MyQuest, useCompleteMyQuest, usePostsForMyQuest, useDeleteMyQuest } from "@/hooks/useMyQuests";
-import { Post } from "@/hooks/usePosts";
 import { auth } from "@/lib/firebase"; // 👈 authをインポート
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-
-// 投稿をリスト表示するためのサブコンポーネント
-const PostItem = ({ post }: { post: Post }) => (
-  <div className="border-t border-line py-4">
-    <p className="whitespace-pre-wrap text-sm">{post.text}</p>
-    {post.photoURL && (
-      <div className="relative mt-2 w-full aspect-video rounded-lg overflow-hidden">
-        <Image src={post.photoURL} alt="投稿画像" fill className="object-cover" />
-      </div>
-    )}
-    <p className="text-xs text-dim mt-2">
-      {new Date(post.createdAt?.toDate()).toLocaleString('ja-JP')}
-    </p>
-  </div>
-);
+import PostCard from "@/components/PostCard"; // 👈 PostCardをインポート
 
 export default function MyQuestDetailView({ quest }: { quest: MyQuest }) {
   const { data: posts, isLoading: isLoadingPosts } = usePostsForMyQuest(quest.id);
@@ -94,10 +78,10 @@ export default function MyQuestDetailView({ quest }: { quest: MyQuest }) {
                 ＋ 今日の進捗を記録する
             </Link>
         }
-        <div className="mt-4">
+        <div className="mt-4 space-y-4">
           {isLoadingPosts && <p className="text-dim">記録を読み込み中...</p>}
           {posts && posts.length > 0 ? (
-            posts.map(post => <PostItem key={post.id} post={post} />)
+            posts.map(post => <PostCard key={post.id} post={post} />)
           ) : (
             <p className="text-dim text-center py-4">まだ進捗の記録がありません。</p>
           )}

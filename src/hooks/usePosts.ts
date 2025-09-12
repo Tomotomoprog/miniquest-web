@@ -24,6 +24,7 @@ export type Post = {
   questTitle?: string | null;
   questCategory?: QuestCategory | null;
   myQuestId?: string | null;
+  myQuestTitle?: string | null; // 👈 修正: この行を追加
   postDate: string;
   createdAt: any;
   likeCount?: number;
@@ -144,6 +145,16 @@ export function useCreatePost() {
           questCategory = data?.category ?? null;
         }
       }
+      
+      // ▼▼▼▼▼ ここから修正 ▼▼▼▼▼
+      let myQuestTitle: string | null = null;
+      if (payload.myQuestId) {
+        const myQuestDoc = await getDoc(doc(db, "my_quests", payload.myQuestId));
+        if (myQuestDoc.exists()) {
+          myQuestTitle = (myQuestDoc.data() as { title?: string })?.title ?? null;
+        }
+      }
+      // ▲▲▲▲▲ 修正ここまで ▲▲▲▲▲
 
       const postData: Omit<Post, "id"> = {
         uid: user.uid,
@@ -158,6 +169,7 @@ export function useCreatePost() {
         questTitle,
         questCategory,
         myQuestId: payload.myQuestId ?? null,
+        myQuestTitle, // 👈 修正: この行を追加
         postDate: todayStr,
         likeCount: 0,
         commentCount: 0,
@@ -273,12 +285,19 @@ export function useDeletePost() {
         if (post.questCategory) {
           dec[`stats.${post.questCategory}`] = increment(-1);
         }
-        await setDoc(userRef, dec, { merge: true });
+        await updateDoc(userRef, dec).catch(async (error) => {
+            if (error.code === 'not-found') {
+                await setDoc(userRef, dec, { merge: true });
+            } else {
+                throw error;
+            }
+        });
       }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["posts"] });
       qc.invalidateQueries({ queryKey: ["profile-me"] });
+      qc.invalidateQueries({ queryKey: ["posts", "for-my-quest"] });
     }
   });
 }

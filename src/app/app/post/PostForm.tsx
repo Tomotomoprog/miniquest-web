@@ -69,7 +69,9 @@ export default function PostForm() {
 
         <label className="btn-ghost cursor-pointer">
           画像を追加
-          <input type="file" accept="image/*" className="hidden" onChange={(e)=>setFile(e.target.files?.[0] ?? null)} />
+          {/* ▼▼▼▼▼ この部分を修正しました ▼▼▼▼▼ */}
+          <input type="file" accept="image/jpeg, image/png, image/webp, image/gif" className="hidden" onChange={(e)=>setFile(e.target.files?.[0] ?? null)} />
+          {/* ▲▲▲▲▲ 修正ここまで ▲▲▲▲▲ */}
         </label>
         <button className="btn-primary" type="submit" disabled={create.isPending}>
           {create.isPending ? "投稿中..." : "投稿"}
