@@ -2,7 +2,7 @@
 import { useSearchParams, useRouter } from "next/navigation";
 import { useState, useMemo } from "react";
 import { useCreatePost } from "@/hooks/usePosts";
-import { useFetchMyQuests } from "@/hooks/useMyQuests"; // 👈 修正: useFetchMyQuestsをインポート
+import { useFetchMyQuests } from "@/hooks/useMyQuests";
 
 export default function PostForm() {
   const params = useSearchParams();
@@ -10,15 +10,13 @@ export default function PostForm() {
   const preQuest = params.get("questId") ?? undefined;
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [selectedMyQuestId, setSelectedMyQuestId] = useState(""); // 👈 修正: stateをID管理に変更
+  const [selectedMyQuestId, setSelectedMyQuestId] = useState("");
   const create = useCreatePost();
-  const { data: myQuests } = useFetchMyQuests(); // 👈 修正: useFetchMyQuestsを呼び出す
+  const { data: myQuests } = useFetchMyQuests();
 
-  // 挑戦中のマイクエストのみをフィルタリング
   const activeQuests = useMemo(() => {
     return myQuests?.filter(q => q.status === 'active') ?? [];
   }, [myQuests]);
-
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,7 +46,6 @@ export default function PostForm() {
           onChange={(e)=>setText(e.target.value)}
         />
         
-        {/* 挑戦中のクエストがある場合のみセレクトボックスを表示 */}
         {activeQuests.length > 0 && (
           <div>
             <label className="block text-sm font-medium text-slate-700">マイクエストに進捗を記録</label>
@@ -67,10 +64,10 @@ export default function PostForm() {
           </div>
         )}
 
-        <label htmlFor="file-upload" className="btn-ghost cursor-pointer btn">
-          画像を追加
+        <label className="btn-ghost cursor-pointer btn">
+          <span>{file ? `選択中: ${file.name}` : "画像を追加"}</span>
+          <input type="file" accept="image/jpeg, image/png, image/webp, image/gif" className="hidden" onChange={(e)=>setFile(e.target.files?.[0] ?? null)} />
         </label>
-        <input id="file-upload" name="file-upload" type="file" className="sr-only" accept="image/jpeg, image/png, image/webp, image/gif" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
         <button className="btn-primary" type="submit" disabled={create.isPending}>
           {create.isPending ? "投稿中..." : "投稿"}
         </button>

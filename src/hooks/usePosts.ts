@@ -279,7 +279,7 @@ export function useDeletePost() {
 
       await deleteDoc(doc(db, "posts", post.id));
 
-      if (post.questId) {
+      if (post.questId || post.myQuestId) {
         const userRef = doc(db, "users", user.uid);
         const dec: Record<string, unknown> = { xp: increment(-10) };
         if (post.questCategory) {

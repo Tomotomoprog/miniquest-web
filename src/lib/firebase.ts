@@ -14,14 +14,14 @@ const cfg = {
 
 const app = getApps().length ? getApp() : initializeApp(cfg);
 
+// バケットURLを明示的に作成
+const bucketUrl = `gs://${cfg.storageBucket}`;
+
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// ▼▼▼▼▼ この部分を修正しました ▼▼▼▼▼
-// バケット名を直接指定するのをやめ、SDKに自動で検出させます。
-// これにより、環境設定ファイルの値に左右されなくなります。
-export const storage = getStorage(app);
-// ▲▲▲▲▲ 修正ここまで ▲▲▲▲▲
+// getStorageにバケットURLを渡して初期化
+export const storage = getStorage(app, bucketUrl);
 
 export const functions = getFunctions(app);
 export const provider = new GoogleAuthProvider();
