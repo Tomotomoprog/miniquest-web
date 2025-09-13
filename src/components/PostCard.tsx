@@ -102,7 +102,7 @@ export default function PostCard({ post }: { post: Post }) {
       {post.text && <p className="text-base leading-relaxed whitespace-pre-wrap">{post.text}</p>}
 
       {post.photoURL && (
-        <div className="relative w-full aspect-video media bg-gray-100">
+        <div className="relative w-full h-96 media bg-gray-100">
           <Image src={post.photoURL} alt="投稿画像" fill sizes="(max-width: 640px) 100vw, 640px" priority style={{ objectFit: 'contain' }} />
         </div>
       )}

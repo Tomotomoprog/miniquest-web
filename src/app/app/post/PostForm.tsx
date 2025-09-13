@@ -67,12 +67,10 @@ export default function PostForm() {
           </div>
         )}
 
-        <label className="btn-ghost cursor-pointer">
+        <label htmlFor="file-upload" className="btn-ghost cursor-pointer btn">
           画像を追加
-          {/* ▼▼▼▼▼ この部分を修正しました ▼▼▼▼▼ */}
-          <input type="file" accept="image/jpeg, image/png, image/webp, image/gif" className="hidden" onChange={(e)=>setFile(e.target.files?.[0] ?? null)} />
-          {/* ▲▲▲▲▲ 修正ここまで ▲▲▲▲▲ */}
         </label>
+        <input id="file-upload" name="file-upload" type="file" className="sr-only" accept="image/jpeg, image/png, image/webp, image/gif" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
         <button className="btn-primary" type="submit" disabled={create.isPending}>
           {create.isPending ? "投稿中..." : "投稿"}
         </button>
