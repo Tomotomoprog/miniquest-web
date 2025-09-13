@@ -37,7 +37,7 @@ const UserListItem = ({ user }: { user: UserWithFriendshipStatus }) => {
   return (
     <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50">
       <Link href={`/app/profile/${user.uid}`} className="h-10 w-10 rounded-full bg-gray-200 relative overflow-hidden">
-        {user.photoURL && <Image src={user.photoURL} alt={user.displayName || ""} fill className="object-cover" />}
+        {user.photoURL && <Image src={user.photoURL} alt={user.displayName || ""} fill sizes="40px" className="object-cover" />}
       </Link>
       <div className="flex-1">
         <Link href={`/app/profile/${user.uid}`} className="font-bold hover:underline">{user.username ?? user.displayName}</Link>
@@ -54,7 +54,7 @@ const UserSearch = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const { data: users, isLoading: isSearching } = useUsers(debouncedSearchTerm);
-  const { data: suggestedUsers, isLoading: isLoadingSuggestions } = useSuggestedUsers(); // 👈 修正: この行を追加
+  const { data: suggestedUsers, isLoading: isLoadingSuggestions } = useSuggestedUsers();
 
   return (
     <div className="space-y-4">
@@ -66,7 +66,6 @@ const UserSearch = () => {
         className="input"
       />
       <div className="space-y-3">
-        {/* ▼▼▼▼▼ この部分を修正しました ▼▼▼▼▼ */}
         {debouncedSearchTerm ? (
           <>
             {isSearching && <p className="text-dim text-center">検索中...</p>}
@@ -82,7 +81,6 @@ const UserSearch = () => {
             {suggestedUsers?.map(user => <UserListItem key={user.uid} user={user} />)}
           </div>
         )}
-        {/* ▲▲▲▲▲ 修正ここまで ▲▲▲▲▲ */}
       </div>
     </div>
   );
@@ -104,7 +102,7 @@ const FriendRequests = () => {
       {requests.map(({ friendship, requesterProfile }) => (
         <div key={friendship.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50">
           <Link href={`/app/profile/${requesterProfile.uid}`} className="h-10 w-10 rounded-full bg-gray-200 relative overflow-hidden">
-            {requesterProfile.photoURL && <Image src={requesterProfile.photoURL} alt={requesterProfile.displayName || ""} fill className="object-cover" />}
+            {requesterProfile.photoURL && <Image src={requesterProfile.photoURL} alt={requesterProfile.displayName || ""} fill sizes="40px" className="object-cover" />}
           </Link>
           <div className="flex-1">
             <Link href={`/app/profile/${requesterProfile.uid}`} className="font-bold hover:underline">{requesterProfile.username ?? requesterProfile.displayName}</Link>
@@ -146,7 +144,7 @@ const FriendList = () => {
       {friends.map(({ profile, friendshipId }) => (
         <Link href={`/app/profile/${profile.uid}`} key={profile.uid} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
           <div className="h-10 w-10 rounded-full bg-gray-200 relative overflow-hidden">
-            {profile.photoURL && <Image src={profile.photoURL} alt={profile.displayName || ""} fill className="object-cover" />}
+            {profile.photoURL && <Image src={profile.photoURL} alt={profile.displayName || ""} fill sizes="40px" className="object-cover" />}
           </div>
           <div className="flex-1">
             <p className="font-bold">{profile.username ?? profile.displayName}</p>

@@ -1,11 +1,11 @@
 "use client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { auth, db, storage, functions } from "@/lib/firebase"; // 👈 functions をインポート
+import { auth, db, storage, functions } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { computeClass, UserStats, ClassResult, computeXpProgress } from "@/utils/progression";
 import { updateProfile as updateAuthProfile } from "firebase/auth";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { httpsCallable } from "firebase/functions"; // 👈 これを追加
+import { httpsCallable } from "firebase/functions";
 
 export type UserProfile = {
   uid: string;
@@ -13,8 +13,9 @@ export type UserProfile = {
   photoURL: string | null;
   xp: number;
   stats: UserStats;
-  username?: string; // 例: "Taro#1234"
-  uniqueTag?: string; // 例: "1234"
+  username?: string;
+  uniqueTag?: string;
+  bio?: string;
 };
 
 type ProfileData = {
@@ -39,6 +40,7 @@ export function useMyProfile() {
         photoURL: auth.currentUser?.photoURL ?? null,
         xp: 0,
         stats: { Life: 0, Study: 0, Physical: 0, Social: 0, Creative: 0, Mental: 0 },
+        bio: "",
       };
       const data = snap.exists() ? (snap.data() as Partial<UserProfile>) : {};
       const merged: UserProfile = {
@@ -49,6 +51,7 @@ export function useMyProfile() {
         uniqueTag: data.uniqueTag,
         xp: typeof data.xp === "number" ? data.xp : 0,
         stats: { ...base.stats, ...(data.stats ?? {}) },
+        bio: data.bio ?? base.bio,
       };
 
       const xpProgress = computeXpProgress(merged.xp);
@@ -59,7 +62,6 @@ export function useMyProfile() {
   });
 }
 
-// ▼▼▼▼▼ 新しく追加したフック ▼▼▼▼▼
 // 指定したユーザーIDのプロフィールを取得するフック
 export function useUserProfile(userId?: string) {
   return useQuery<ProfileData>({
@@ -81,6 +83,7 @@ export function useUserProfile(userId?: string) {
         uniqueTag: data.uniqueTag,
         xp: data.xp ?? 0,
         stats: data.stats ?? { Life: 0, Study: 0, Physical: 0, Social: 0, Creative: 0, Mental: 0 },
+        bio: data.bio ?? "",
       };
 
       const xpProgress = computeXpProgress(profile.xp);
@@ -90,25 +93,41 @@ export function useUserProfile(userId?: string) {
     },
   });
 }
-// ▲▲▲▲▲ 追加ここまで ▲▲▲▲▲
 
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (payload: { displayName: string }) => {
-      if (!auth.currentUser) throw new Error("Not authenticated");
-      if (!payload.displayName.trim()) throw new Error("Display name cannot be empty");
+    mutationFn: async (payload: { displayName?: string; bio?: string }) => {
+      const user = auth.currentUser;
+      if (!user) throw new Error("Not authenticated");
 
       const updateUserProfileCallable = httpsCallable(functions, 'updateUserProfile');
-      const result = await updateUserProfileCallable({ displayName: payload.displayName.trim() });
+      
+      const payloadForFunction: { [key: string]: any } = {};
+      if (payload.displayName !== undefined) {
+        if (!payload.displayName.trim()) throw new Error("Display name cannot be empty");
+        payloadForFunction.displayName = payload.displayName.trim();
+      }
+      if (payload.bio !== undefined) {
+        payloadForFunction.bio = payload.bio;
+      }
+      
+      if (Object.keys(payloadForFunction).length === 0) {
+        throw new Error("No fields to update.");
+      }
+
+      const result = await updateUserProfileCallable(payloadForFunction);
       
       return result.data;
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["profile-me"] });
       queryClient.invalidateQueries({ queryKey: ["users"] });
       queryClient.invalidateQueries({ queryKey: ["friends"] });
+      if (variables.displayName) {
+        queryClient.invalidateQueries({ queryKey: ["posts"] });
+      }
     },
   });
 }

@@ -44,7 +44,7 @@ export function useFriendsOfUser(targetUserId?: string) {
     const currentUser = auth.currentUser;
     return useQuery<UserWithFriendshipStatus[]>({
         queryKey: ["friends-of", targetUserId, currentUser?.uid],
-        enabled: !!targetUserId && !!currentUser && targetUserId !== currentUser.uid,
+        enabled: !!targetUserId && !!currentUser,
         queryFn: async () => {
             if (!targetUserId || !currentUser) return [];
 
@@ -59,7 +59,7 @@ export function useFriendsOfUser(targetUserId?: string) {
             
             const friendIds = friendsSnap.docs
                 .map(doc => doc.data().userIds.find((id: string) => id !== targetUserId))
-                .filter(id => id && id !== currentUser.uid);
+                .filter((id): id is string => !!id);
             
             if (friendIds.length === 0) return [];
 
@@ -77,7 +77,11 @@ export function useFriendsOfUser(targetUserId?: string) {
             const currentUserFriendships = currentUserFriendshipsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Friendship));
             
             // 4. プロフィールとフレンドシップ情報をマージして、最終的なステータスを決定
-            const result = friendProfiles.map(profile => {
+            return friendProfiles.map(profile => {
+                if (profile.uid === currentUser.uid) {
+                    return { ...profile, friendshipStatus: "self" } as UserWithFriendshipStatus
+                }
+
                 const friendship = currentUserFriendships.find(f => f.userIds.includes(profile.uid));
                 
                 if (friendship) {
@@ -92,8 +96,6 @@ export function useFriendsOfUser(targetUserId?: string) {
                 }
                 return { ...profile, friendshipStatus: "not-friends" } as UserWithFriendshipStatus;
             });
-
-            return result;
         }
     });
 }

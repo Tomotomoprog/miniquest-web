@@ -25,7 +25,7 @@ const CommentSection = ({ postId }: { postId: string }) => {
         {comments?.map(comment => (
           <div key={comment.id} className="flex items-start gap-2 text-sm">
             <div className="flex-shrink-0 h-6 w-6 rounded-full bg-gray-200 relative overflow-hidden">
-              {comment.userAvatar && <Image src={comment.userAvatar} alt={comment.userName} fill className="object-cover" />}
+              {comment.userAvatar && <Image src={comment.userAvatar} alt={comment.userName} fill sizes="24px" className="object-cover" />}
             </div>
             <div>
               <span className="font-bold mr-2">{comment.userName}</span>
@@ -71,7 +71,7 @@ export default function PostCard({ post }: { post: Post }) {
     <article className="card p-4 space-y-3">
       <div className="flex items-center gap-3">
         <Link href={`/app/profile/${post.uid}`} className="h-10 w-10 rounded-full bg-gray-200 overflow-hidden relative">
-            {post.userAvatar && <Image src={post.userAvatar} alt={post.userName} fill className="object-cover" />}
+            {post.userAvatar && <Image src={post.userAvatar} alt={post.userName} fill sizes="40px" className="object-cover" />}
         </Link>
         <div className="text-sm">
           <Link href={`/app/profile/${post.uid}`} className="font-bold hover:underline">{post.userName}</Link>
@@ -84,7 +84,6 @@ export default function PostCard({ post }: { post: Post }) {
         )}
       </div>
 
-      {/* ▼▼▼▼▼ この部分を修正しました ▼▼▼▼▼ */}
       {post.questTitle && (
         <div className="text-xs text-dim bg-slate-50 p-2 rounded-md">
           <Link href={`/app/timeline?questId=${post.questId}`} className="hover:underline">
@@ -99,13 +98,12 @@ export default function PostCard({ post }: { post: Post }) {
           </Link>
         </div>
       )}
-      {/* ▲▲▲▲▲ 修正ここまで ▲▲▲▲▲ */}
 
       {post.text && <p className="text-base leading-relaxed whitespace-pre-wrap">{post.text}</p>}
 
       {post.photoURL && (
         <div className="relative w-full aspect-video media bg-gray-100">
-          <Image src={post.photoURL} alt="投稿画像" fill style={{ objectFit: 'contain' }} />
+          <Image src={post.photoURL} alt="投稿画像" fill sizes="(max-width: 640px) 100vw, 640px" priority style={{ objectFit: 'contain' }} />
         </div>
       )}
 

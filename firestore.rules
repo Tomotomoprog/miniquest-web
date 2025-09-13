@@ -18,10 +18,13 @@ service cloud.firestore {
       allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // 【MyQuests】ユーザーは自分のマイクエストのみ読み書きできる
+    // 【MyQuests】
     match /my_quests/{myQuestId} {
-      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.uid;
+      // ログインしているユーザーは全てのマイケストを読み取れる
+      allow read: if request.auth != null;
+      // 作成、更新、削除は自分自身のみに許可
       allow create: if request.auth != null && request.auth.uid == request.resource.data.uid;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.uid;
     }
 
     // 【Posts】投稿に関するルール
@@ -52,8 +55,8 @@ service cloud.firestore {
     
     // 【Friendships】フレンド関係に関するルール
     match /friendships/{friendshipId} {
-      // 読み取り：自分に関係のあるフレンド情報のみ許可
-      allow read: if request.auth != null && request.auth.uid in resource.data.userIds;
+      // 読み取り：ログインしているユーザーは全てのフレンド情報を読み取れる
+      allow read: if request.auth != null;
       // 作成 (友達申請)：
       allow create: if request.auth != null
                     && request.auth.uid == request.resource.data.requesterId
